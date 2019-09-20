@@ -6,6 +6,7 @@ import (
 	"io/ioutil"
 	"net/http"
 	"strings"
+	"time"
 
 	utils "github.com/alessiosavi/GoUtils"
 	"github.com/alessiosavi/Requests/datastructure"
@@ -42,6 +43,8 @@ func SendRequest(url, method string, headers [][]string, jsonStr []byte) *datast
 	var req *http.Request
 	var err error
 	var response *datastructure.RequestResponse
+
+	start := time.Now()
 
 	switch method {
 	case "GET":
@@ -94,7 +97,7 @@ func SendRequest(url, method string, headers [][]string, jsonStr []byte) *datast
 	//zap.S().Debug("sendRequest | Request executed, reading response ...")
 	body, err := ioutil.ReadAll(resp.Body)
 	if err != nil {
-		zap.S().Error("sendRequest | Unable to read response! ", err)
+		zap.S().Error("sendRequest | Unable to read response! | Err: ", err)
 		response.Error = err
 		return response
 	}
@@ -106,6 +109,9 @@ func SendRequest(url, method string, headers [][]string, jsonStr []byte) *datast
 	response.Body = body
 	response.StatusCode = resp.StatusCode
 	response.Headers = headersResp
-	zap.S().Debug("sendRequest | Response saved")
+	response.Error = nil
+	t := time.Now()
+	elapsed := t.Sub(start)
+	zap.S().Debug("sendRequest | Elapsed -> ", elapsed, " | STOP!")
 	return response
 }
