@@ -3,6 +3,7 @@ package requests
 import (
 	"bytes"
 	"errors"
+	"fmt"
 	"io/ioutil"
 	"net/http"
 	"strings"
@@ -42,9 +43,16 @@ func SendRequest(url, method string, headers [][]string, jsonStr []byte) *datast
 	// Create a custom request
 	var req *http.Request
 	var err error
-	var response *datastructure.RequestResponse
+	var response datastructure.RequestResponse
 
 	start := time.Now()
+
+	if !strings.HasPrefix(url, "http://") || !strings.HasPrefix(url, "https://") {
+		_error := errors.New(fmt.Sprint("Url have not a compliant prefix [%s], use http or https ...", url))
+		zap.S().Debug("sendRequest | ", _error)
+		response.Error = _error
+		return &response
+	}
 
 	switch method {
 	case "GET":
@@ -54,7 +62,7 @@ func SendRequest(url, method string, headers [][]string, jsonStr []byte) *datast
 			zap.S().Error("sendRequest | Unable to send post data without BODY data")
 			err := errors.New("CALL POST without pass BODY data")
 			response.Error = err
-			return response
+			return &response
 		}
 		req, err = http.NewRequest("POST", url, bytes.NewBuffer(jsonStr))
 	case "PUT":
@@ -65,25 +73,27 @@ func SendRequest(url, method string, headers [][]string, jsonStr []byte) *datast
 		zap.S().Warn("sendRequest | Unkown method -> ", method)
 		err := errors.New("Unkow HTTP METHOD -> " + method)
 		response.Error = err
-		return response
+		return &response
 	}
 	if err != nil {
 		zap.S().Error("AuthenticateRequest | Unable to create request! | Err: ", err)
 		response.Error = err
-		return response
+		return &response
 	}
 
-	lenght := len(headers)
-	for i := 0; i < lenght; i++ {
-		// zap.S().Debug("sendRequest | Adding header: ", headers[i], " Len: ", len(headers[i]))
-		key := headers[i][0]
-		value := headers[i][1]
-		if strings.Compare(`Authorization`, key) == 0 {
-			req.Header.Add(key, value)
-		} else {
-			req.Header.Set(key, value)
+	if headers != nil {
+		lenght := len(headers)
+		for i := 0; i < lenght; i++ {
+			// zap.S().Debug("sendRequest | Adding header: ", headers[i], " Len: ", len(headers[i]))
+			key := headers[i][0]
+			value := headers[i][1]
+			if strings.Compare(`Authorization`, key) == 0 {
+				req.Header.Add(key, value)
+			} else {
+				req.Header.Set(key, value)
+			}
+			//zap.S().Debug("sendRequest | Adding header: {", key, "|", value, "}")
 		}
-		//zap.S().Debug("sendRequest | Adding header: {", key, "|", value, "}")
 	}
 	zap.S().Debug("sendRequest | Executing request ...")
 	client := &http.Client{}
@@ -91,7 +101,7 @@ func SendRequest(url, method string, headers [][]string, jsonStr []byte) *datast
 	if err != nil {
 		zap.S().Debug("Error on response | ERR:", err)
 		response.Error = err
-		return response
+		return &response
 	}
 	defer resp.Body.Close()
 	//zap.S().Debug("sendRequest | Request executed, reading response ...")
@@ -99,7 +109,7 @@ func SendRequest(url, method string, headers [][]string, jsonStr []byte) *datast
 	if err != nil {
 		zap.S().Error("sendRequest | Unable to read response! | Err: ", err)
 		response.Error = err
-		return response
+		return &response
 	}
 	var headersResp []string
 	for k, v := range resp.Header {
@@ -113,5 +123,5 @@ func SendRequest(url, method string, headers [][]string, jsonStr []byte) *datast
 	t := time.Now()
 	elapsed := t.Sub(start)
 	zap.S().Debug("sendRequest | Elapsed -> ", elapsed, " | STOP!")
-	return response
+	return &response
 }
