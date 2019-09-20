@@ -48,7 +48,7 @@ func SendRequest(url, method string, headers [][]string, jsonStr []byte) *datast
 	start := time.Now()
 
 	if !strings.HasPrefix(url, "http://") || !strings.HasPrefix(url, "https://") {
-		_error := errors.New(fmt.Sprint("Url have not a compliant prefix [%s], use http or https ...", url))
+		_error := fmt.Errorf("URL [%s] have not a compliant prefix, use http or https", url)
 		zap.S().Debug("sendRequest | ", _error)
 		response.Error = _error
 		return &response

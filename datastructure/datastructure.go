@@ -7,11 +7,7 @@ import (
 	"go.uber.org/zap"
 )
 
-type DB2User struct {
-	User string `json:"userid"`
-	Pass string `json:"password"`
-}
-
+// Configuration is delegated to map the json configuration file to Golang struct
 type Configuration struct {
 	Version string
 	Network struct {
@@ -27,14 +23,9 @@ type Configuration struct {
 		Apikey string
 		User   string
 	}
-	DB2 struct {
-		Host   string
-		User   string
-		Pass   string
-		DBName string
-	}
 }
 
+// RequestResponse is delegated to save the necessary information related to an HTTP call
 type RequestResponse struct {
 	Headers    []string
 	Body       []byte
