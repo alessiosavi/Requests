@@ -58,6 +58,7 @@ func SendRequest(url, method string, headers [][]string, jsonStr []byte) *datast
 	case "GET":
 		req, err = http.NewRequest("GET", url, nil)
 	case "POST":
+		// TODO: Allow post request without argument?
 		if jsonStr == nil {
 			zap.S().Error("sendRequest | Unable to send post data without BODY data")
 			err := errors.New("CALL POST without pass BODY data")
