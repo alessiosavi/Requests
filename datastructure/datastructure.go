@@ -39,6 +39,7 @@ type RequestResponse struct {
 	Headers    []string
 	Body       []byte
 	StatusCode int
+	Error      error
 }
 
 // LoadConfiguration is delegated to load the configuration

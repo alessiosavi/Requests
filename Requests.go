@@ -2,6 +2,7 @@ package requests
 
 import (
 	"bytes"
+	"errors"
 	"io/ioutil"
 	"net/http"
 	"strings"
@@ -33,16 +34,25 @@ func CreateHeaderList(headers ...string) [][]string {
 	return list
 }
 
+// SendRequest is delegated to initialize a new HTTP request.
+// If the
 func SendRequest(url, method string, headers [][]string, jsonStr []byte) *datastructure.RequestResponse {
 
 	// Create a custom request
 	var req *http.Request
 	var err error
+	var response *datastructure.RequestResponse
 
 	switch method {
 	case "GET":
 		req, err = http.NewRequest("GET", url, nil)
 	case "POST":
+		if jsonStr == nil {
+			zap.S().Error("sendRequest | Unable to send post data without BODY data")
+			err := errors.New("CALL POST without pass BODY data")
+			response.Error = err
+			return response
+		}
 		req, err = http.NewRequest("POST", url, bytes.NewBuffer(jsonStr))
 	case "PUT":
 		req, err = http.NewRequest("PUT", url, nil)
@@ -50,17 +60,19 @@ func SendRequest(url, method string, headers [][]string, jsonStr []byte) *datast
 		req, err = http.NewRequest("DELETE", url, nil)
 	default:
 		zap.S().Warn("sendRequest | Unkown method -> ", method)
-		return nil
+		err := errors.New("Unkow HTTP METHOD -> " + method)
+		response.Error = err
+		return response
 	}
 	if err != nil {
-		zap.S().Error("AuthenticateRequest | Unable to create request! ", err)
-		return nil
+		zap.S().Error("AuthenticateRequest | Unable to create request! | Err: ", err)
+		response.Error = err
+		return response
 	}
 
 	lenght := len(headers)
 	for i := 0; i < lenght; i++ {
-		//zap.S().Debug("sendRequest | Adding header: ", headers[i], " Len: ", len(headers[i]))
-
+		// zap.S().Debug("sendRequest | Adding header: ", headers[i], " Len: ", len(headers[i]))
 		key := headers[i][0]
 		value := headers[i][1]
 		if strings.Compare(`Authorization`, key) == 0 {
@@ -75,23 +87,25 @@ func SendRequest(url, method string, headers [][]string, jsonStr []byte) *datast
 	resp, err := client.Do(req)
 	if err != nil {
 		zap.S().Debug("Error on response | ERR:", err)
-		return nil
+		response.Error = err
+		return response
 	}
 	defer resp.Body.Close()
 	//zap.S().Debug("sendRequest | Request executed, reading response ...")
 	body, err := ioutil.ReadAll(resp.Body)
 	if err != nil {
 		zap.S().Error("sendRequest | Unable to read response! ", err)
-		return nil
+		response.Error = err
+		return response
 	}
 	var headersResp []string
 	for k, v := range resp.Header {
 		headersResp = append(headersResp, utils.Join(k, `:`, strings.Join(v, `,`)))
 	}
-	response := datastructure.RequestResponse{}
+
 	response.Body = body
 	response.StatusCode = resp.StatusCode
 	response.Headers = headersResp
 	zap.S().Debug("sendRequest | Response saved")
-	return &response
+	return response
 }
