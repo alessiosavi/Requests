@@ -38,7 +38,7 @@ func CreateHeaderList(headers ...string) [][]string {
 
 // SendRequest is delegated to initialize a new HTTP request.
 // If the
-func SendRequest(url, method string, headers [][]string, jsonStr []byte) *datastructure.RequestResponse {
+func SendRequest(url, method string, headers [][]string, bodyData []byte) *datastructure.RequestResponse {
 
 	// Create a custom request
 	var req *http.Request
@@ -59,13 +59,13 @@ func SendRequest(url, method string, headers [][]string, jsonStr []byte) *datast
 		req, err = http.NewRequest("GET", url, nil)
 	case "POST":
 		// TODO: Allow post request without argument?
-		if jsonStr == nil {
+		if bodyData == nil {
 			zap.S().Error("sendRequest | Unable to send post data without BODY data")
 			err := errors.New("CALL POST without pass BODY data")
 			response.Error = err
 			return &response
 		}
-		req, err = http.NewRequest("POST", url, bytes.NewBuffer(jsonStr))
+		req, err = http.NewRequest("POST", url, bytes.NewBuffer(bodyData))
 	case "PUT":
 		req, err = http.NewRequest("PUT", url, nil)
 	case "DELETE":
@@ -77,14 +77,13 @@ func SendRequest(url, method string, headers [][]string, jsonStr []byte) *datast
 		return &response
 	}
 	if err != nil {
-		zap.S().Error("AuthenticateRequest | Unable to create request! | Err: ", err)
+		zap.S().Error("sendRequest | Unable to create request! | Err: ", err)
 		response.Error = err
 		return &response
 	}
-
+	contentLenghtPresent := false
 	if headers != nil {
-		lenght := len(headers)
-		for i := 0; i < lenght; i++ {
+		for i := range headers {
 			// zap.S().Debug("sendRequest | Adding header: ", headers[i], " Len: ", len(headers[i]))
 			key := headers[i][0]
 			value := headers[i][1]
@@ -93,8 +92,17 @@ func SendRequest(url, method string, headers [][]string, jsonStr []byte) *datast
 			} else {
 				req.Header.Set(key, value)
 			}
+			if key == "Content-Length" {
+				contentLenghtPresent = true
+			}
 			//zap.S().Debug("sendRequest | Adding header: {", key, "|", value, "}")
 		}
+	}
+
+	if bodyData != nil && !contentLenghtPresent {
+		contentLenght := len(bodyData)
+		zap.S().Debug("sendRequest | Content-Lenght not provided, setting new one -> ", contentLenght)
+		req.Header.Add("Content-Lenght", string(contentLenght))
 	}
 	zap.S().Debug("sendRequest | Executing request ...")
 	client := &http.Client{}
@@ -106,7 +114,7 @@ func SendRequest(url, method string, headers [][]string, jsonStr []byte) *datast
 	}
 	defer resp.Body.Close()
 	//zap.S().Debug("sendRequest | Request executed, reading response ...")
-	body, err := ioutil.ReadAll(resp.Body)
+	bodyResp, err := ioutil.ReadAll(resp.Body)
 	if err != nil {
 		zap.S().Error("sendRequest | Unable to read response! | Err: ", err)
 		response.Error = err
@@ -114,10 +122,10 @@ func SendRequest(url, method string, headers [][]string, jsonStr []byte) *datast
 	}
 	var headersResp []string
 	for k, v := range resp.Header {
-		headersResp = append(headersResp, utils.Join(k, `:`, strings.Join(v, `,`)))
+		headersResp = append(headersResp, utils.Join(k, `:`, strings.Join(v, `|`)))
 	}
 
-	response.Body = body
+	response.Body = bodyResp
 	response.StatusCode = resp.StatusCode
 	response.Headers = headersResp
 	response.Error = nil

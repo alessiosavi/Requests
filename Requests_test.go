@@ -4,6 +4,8 @@ import (
 	"testing"
 
 	"github.com/alessiosavi/Requests/datastructure"
+	"go.uber.org/zap"
+	"go.uber.org/zap/zapcore"
 )
 
 func TestCreateHeaderList(t *testing.T) {
@@ -12,8 +14,6 @@ func TestCreateHeaderList(t *testing.T) {
 	headersValue := `application/json`
 
 	contentTypeHeaders := CreateHeaderList(headersKey, headersValue)
-
-	t.Log("Headers => ", contentTypeHeaders)
 
 	if len(contentTypeHeaders) != 1 {
 		t.Error("size error!")
@@ -33,27 +33,41 @@ func TestCreateHeaderList(t *testing.T) {
 	}
 }
 
+func initZapLog() *zap.Logger {
+	config := zap.NewDevelopmentConfig()
+	config.EncoderConfig.EncodeLevel = zapcore.CapitalColorLevelEncoder
+	config.EncoderConfig.TimeKey = "timestamp"
+	config.EncoderConfig.EncodeTime = zapcore.ISO8601TimeEncoder
+	logger, _ := config.Build()
+	return logger
+}
+
 func TestSendRequest(t *testing.T) {
+
+	// loggerMgr := initZapLog()
+	// zap.ReplaceGlobals(loggerMgr)
+	// defer loggerMgr.Sync() // flushes buffer, if any
+	// logger := loggerMgr.Sugar()
+	// logger.Debug("START")
 	var resp *datastructure.RequestResponse
 	resp = makeBadRequestURL1()
 	if resp == nil || resp.Error == nil {
 		t.Fail()
+	} else {
+		t.Log("makeBadRequestURL1 Passed!")
 	}
-	t.Log("makeBadRequestURL1 Passed!")
-
 	resp = makeBadRequestURL2()
 	if resp == nil || resp.Error == nil {
 		t.Fail()
+	} else {
+		t.Log("makeBadRequestURL2 Passed!")
 	}
-	t.Log("makeBadRequestURL2 Passed!")
-
 	resp = makeOKRequestURL3()
 	if resp == nil || resp.Error != nil || resp.StatusCode != 200 {
 		t.Fail()
+	} else {
+		t.Log("makeOKRequestURL3 Passed!")
 	}
-	t.Log("makeOKRequestURL3 Passed!")
-
-	t.Log("Tests Passed!")
 }
 
 func makeBadRequestURL1() *datastructure.RequestResponse {
