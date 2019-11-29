@@ -2,6 +2,7 @@ package requests
 
 import (
 	"bytes"
+	"crypto/tls"
 	"errors"
 	"fmt"
 	"io/ioutil"
@@ -38,7 +39,7 @@ func CreateHeaderList(headers ...string) [][]string {
 
 // SendRequest is delegated to initialize a new HTTP request.
 // If the
-func SendRequest(url, method string, headers [][]string, bodyData []byte) *datastructure.RequestResponse {
+func SendRequest(url, method string, headers [][]string, bodyData []byte, skipTLS bool) *datastructure.RequestResponse {
 
 	// Create a custom request
 	var req *http.Request
@@ -47,6 +48,10 @@ func SendRequest(url, method string, headers [][]string, bodyData []byte) *datas
 
 	start := time.Now()
 
+	if skipTLS {
+		http.DefaultTransport.(*http.Transport).TLSClientConfig = &tls.Config{InsecureSkipVerify: true}
+	}
+
 	if !strings.HasPrefix(url, "http://") && !strings.HasPrefix(url, "https://") {
 		_error := fmt.Errorf("URL [%s] have not a compliant prefix, use http or https", url)
 		zap.S().Debug("sendRequest | ", _error)
@@ -54,6 +59,7 @@ func SendRequest(url, method string, headers [][]string, bodyData []byte) *datas
 		return &response
 	}
 
+	method = strings.ToUpper(method)
 	switch method {
 	case "GET":
 		req, err = http.NewRequest("GET", url, nil)

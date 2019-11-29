@@ -71,13 +71,13 @@ func TestSendRequest(t *testing.T) {
 }
 
 func makeBadRequestURL1() *datastructure.RequestResponse {
-	return SendRequest("tcp://google.it", "GET", nil, nil)
+	return SendRequest("tcp://google.it", "GET", nil, nil, true)
 }
 func makeBadRequestURL2() *datastructure.RequestResponse {
-	return SendRequest("google.it", "GET", nil, nil)
+	return SendRequest("google.it", "GET", nil, nil, true)
 }
 func makeOKRequestURL3() *datastructure.RequestResponse {
-	return SendRequest("https://google.it", "GET", nil, nil)
+	return SendRequest("https://google.it", "GET", nil, nil, true)
 }
 
 func dumpResponse(resp *datastructure.RequestResponse, t *testing.T) {
