@@ -88,21 +88,20 @@ func SendRequest(url, method string, headers [][]string, bodyData []byte, skipTL
 		return &response
 	}
 	contentLenghtPresent := false
-	if headers != nil {
-		for i := range headers {
-			// zap.S().Debug("sendRequest | Adding header: ", headers[i], " Len: ", len(headers[i]))
-			key := headers[i][0]
-			value := headers[i][1]
-			if strings.Compare(`Authorization`, key) == 0 {
-				req.Header.Add(key, value)
-			} else {
-				req.Header.Set(key, value)
-			}
-			if key == "Content-Length" {
-				contentLenghtPresent = true
-			}
-			//zap.S().Debug("sendRequest | Adding header: {", key, "|", value, "}")
+	for i := range headers {
+		// zap.S().Debug("sendRequest | Adding header: ", headers[i], " Len: ", len(headers[i]))
+		key := headers[i][0]
+		value := headers[i][1]
+		if strings.Compare(`Authorization`, key) == 0 {
+			req.Header.Add(key, value)
+		} else {
+			req.Header.Set(key, value)
 		}
+		if key == "Content-Length" {
+			contentLenghtPresent = true
+		}
+		//zap.S().Debug("sendRequest | Adding header: {", key, "|", value, "}")
+
 	}
 
 	if bodyData != nil && !contentLenghtPresent {
