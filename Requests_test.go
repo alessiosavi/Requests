@@ -44,18 +44,23 @@ func TestSendRequest(t *testing.T) {
 	} else {
 		t.Log("makeBadRequestURL1 Passed!")
 	}
+	t.Log(resp.Dump())
+
 	resp = makeBadRequestURL2()
 	if resp == nil || resp.Error == nil {
 		t.Fail()
 	} else {
 		t.Log("makeBadRequestURL2 Passed!")
 	}
+	t.Log(resp.Dump())
+
 	resp = makeOKRequestURL3()
 	if resp == nil || resp.Error != nil || resp.StatusCode != 200 {
 		t.Fail()
 	} else {
 		t.Log("makeOKRequestURL3 Passed!")
 	}
+	t.Log(resp.Dump())
 }
 
 func BenchmarkRequestGETWithoutTLS(t *testing.B) {
@@ -94,12 +99,4 @@ func makeBadRequestURL2() *datastructure.Response {
 }
 func makeOKRequestURL3() *datastructure.Response {
 	return req.SendRequest("https://google.it", "GET", nil, true)
-}
-
-func dumpResponse(resp *datastructure.Response, t *testing.T) {
-	t.Log(string(resp.Body))
-	t.Log(resp.StatusCode)
-	t.Log(resp.Headers)
-	t.Log(resp.Error)
-	t.Log(resp)
 }
