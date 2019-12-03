@@ -58,6 +58,34 @@ func TestSendRequest(t *testing.T) {
 	}
 }
 
+func BenchmarkRequestGETWithoutTLS(t *testing.B) {
+	var r Request
+	for i := 0; i < t.N; i++ {
+		r.SendRequest("http://127.0.0.1:8080", "GET", nil, false)
+	}
+}
+
+func BenchmarkRequestGETWithTLS(t *testing.B) {
+	var r Request
+	for i := 0; i < t.N; i++ {
+		r.SendRequest("http://127.0.0.1:8080", "GET", nil, true)
+	}
+}
+
+func BenchmarkRequestPOSTWithoutTLS(t *testing.B) {
+	var r Request
+	for i := 0; i < t.N; i++ {
+		r.SendRequest("http://127.0.0.1:8080", "POST", []byte{}, false)
+	}
+}
+
+func BenchmarkRequestPOSTWithTLS(t *testing.B) {
+	var r Request
+	for i := 0; i < t.N; i++ {
+		r.SendRequest("http://127.0.0.1:8080", "POST", []byte{}, true)
+	}
+}
+
 func makeBadRequestURL1() *datastructure.Response {
 	return req.SendRequest("tcp://google.it", "GET", nil, true)
 }

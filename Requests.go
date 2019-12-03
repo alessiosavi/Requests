@@ -8,6 +8,7 @@ import (
 	"io/ioutil"
 	"log"
 	"net/http"
+	"strconv"
 	"strings"
 	"time"
 
@@ -116,10 +117,10 @@ func (req *Request) SendRequest(url, method string, bodyData []byte, skipTLS boo
 
 	if bodyData != nil && !contentLenghtPresent {
 		contentLenght := len(bodyData)
-		log.Println("sendRequest | Content-Lenght not provided, setting new one -> ", contentLenght)
-		req.Req.Header.Add("Content-Lenght", string(contentLenght))
+		// log.Println("sendRequest | Content-Lenght not provided, setting new one -> ", contentLenght)
+		req.Req.Header.Add("Content-Lenght", strconv.Itoa(contentLenght))
 	}
-	log.Println("sendRequest | Executing request ...")
+	// log.Println("sendRequest | Executing request ...")
 	client := &http.Client{}
 	resp, err := client.Do(req.Req)
 	if err != nil {
@@ -147,6 +148,6 @@ func (req *Request) SendRequest(url, method string, bodyData []byte, skipTLS boo
 	t := time.Now()
 	elapsed := t.Sub(start)
 	response.Time = elapsed
-	log.Println("sendRequest | Elapsed -> ", elapsed, " | STOP!")
+	// log.Println("sendRequest | Elapsed -> ", elapsed, " | STOP!")
 	return &response
 }
