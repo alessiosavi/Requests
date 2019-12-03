@@ -30,11 +30,15 @@ func examplePOSTRequest() {
 	// GET, without BODY data (only used in POST), and enabling SSL certificate validation (skipTLS: false)
 	response := req.SendRequest("https://postman-echo.com/post", "POST", body, false)
 
+	// Use the response data
 	fmt.Println("Headers: ", response.Headers)
 	fmt.Println("Status code: ", response.StatusCode)
 	fmt.Println("Time elapsed: ", response.Time)
 	fmt.Println("Error: ", response.Error)
 	fmt.Println("Body: ", string(response.Body))
+
+	// Or print them
+	fmt.Println(response.Dump())
 
 }
 
