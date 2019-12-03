@@ -4,27 +4,29 @@ import (
 	"testing"
 
 	"github.com/alessiosavi/Requests/datastructure"
-	"go.uber.org/zap"
-	"go.uber.org/zap/zapcore"
 )
+
+var req Request
 
 func TestCreateHeaderList(t *testing.T) {
 	// Create a simple headers
 	headersKey := `Content-Type`
 	headersValue := `application/json`
 
-	contentTypeHeaders := CreateHeaderList(headersKey, headersValue)
+	if !req.CreateHeaderList(headersKey, headersValue) {
+		t.Error("Unable to create headers list")
+	}
 
-	if len(contentTypeHeaders) != 1 {
+	if len(req.Headers) != 1 {
 		t.Error("size error!")
 	}
 
-	if len(contentTypeHeaders[0]) != 2 {
+	if len(req.Headers[0]) != 2 {
 		t.Error("key value headers size mismatch")
 	}
 
-	headersKeyTest := contentTypeHeaders[0][0]
-	headersValueTest := contentTypeHeaders[0][1]
+	headersKeyTest := req.Headers[0][0]
+	headersValueTest := req.Headers[0][1]
 	if headersKey != headersKeyTest {
 		t.Error("Headers key mismatch!")
 	}
@@ -33,23 +35,9 @@ func TestCreateHeaderList(t *testing.T) {
 	}
 }
 
-func initZapLog() *zap.Logger {
-	config := zap.NewDevelopmentConfig()
-	config.EncoderConfig.EncodeLevel = zapcore.CapitalColorLevelEncoder
-	config.EncoderConfig.TimeKey = "timestamp"
-	config.EncoderConfig.EncodeTime = zapcore.ISO8601TimeEncoder
-	logger, _ := config.Build()
-	return logger
-}
-
 func TestSendRequest(t *testing.T) {
 
-	// loggerMgr := initZapLog()
-	// zap.ReplaceGlobals(loggerMgr)
-	// defer loggerMgr.Sync() // flushes buffer, if any
-	// logger := loggerMgr.Sugar()
-	// logger.Debug("START")
-	var resp *datastructure.RequestResponse
+	var resp *datastructure.Response
 	resp = makeBadRequestURL1()
 	if resp == nil || resp.Error == nil {
 		t.Fail()
@@ -70,17 +58,17 @@ func TestSendRequest(t *testing.T) {
 	}
 }
 
-func makeBadRequestURL1() *datastructure.RequestResponse {
-	return SendRequest("tcp://google.it", "GET", nil, nil, true)
+func makeBadRequestURL1() *datastructure.Response {
+	return req.SendRequest("tcp://google.it", "GET", nil, true)
 }
-func makeBadRequestURL2() *datastructure.RequestResponse {
-	return SendRequest("google.it", "GET", nil, nil, true)
+func makeBadRequestURL2() *datastructure.Response {
+	return req.SendRequest("google.it", "GET", nil, true)
 }
-func makeOKRequestURL3() *datastructure.RequestResponse {
-	return SendRequest("https://google.it", "GET", nil, nil, true)
+func makeOKRequestURL3() *datastructure.Response {
+	return req.SendRequest("https://google.it", "GET", nil, true)
 }
 
-func dumpResponse(resp *datastructure.RequestResponse, t *testing.T) {
+func dumpResponse(resp *datastructure.Response, t *testing.T) {
 	t.Log(string(resp.Body))
 	t.Log(resp.StatusCode)
 	t.Log(resp.Headers)

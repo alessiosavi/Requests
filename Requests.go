@@ -6,22 +6,32 @@ import (
 	"errors"
 	"fmt"
 	"io/ioutil"
+	"log"
 	"net/http"
 	"strings"
 	"time"
 
 	utils "github.com/alessiosavi/GoUtils"
 	"github.com/alessiosavi/Requests/datastructure"
-	"go.uber.org/zap"
 )
+
+type Request struct {
+	Headers [][]string
+	Req     *http.Request
+	Resp    datastructure.Response
+}
 
 // CreateHeaderList is delegated to initialize a list of headers.
 // Every row of the matrix contains [key,value]
-func CreateHeaderList(headers ...string) [][]string {
-	var list [][]string
+func (req *Request) CreateHeaderList(headers ...string) bool {
 	lenght := len(headers)
 
-	list = make([][]string, lenght/2)
+	if len(headers)%2 != 0 {
+		log.Println(`Headers have to be a "key:value" list`)
+		return false
+	}
+
+	req.Headers = make([][]string, lenght/2)
 	counter := 0
 	for i := 0; i < lenght; i += 2 {
 		tmp := make([]string, 2)
@@ -29,32 +39,32 @@ func CreateHeaderList(headers ...string) [][]string {
 		value := headers[i+1]
 		tmp[0] = key
 		tmp[1] = value
-		//zap.S().Debug("createHeaderList | ", i, ") Key: ", key, " Value: ", value)
-		list[counter] = tmp
+		//log.Println("createHeaderList | ", i, ") Key: ", key, " Value: ", value)
+		req.Headers[counter] = tmp
 		counter++
 	}
-	//zap.S().Debug("createHeaderList | LIST: ", list)
-	return list
+	//log.Println("createHeaderList | LIST: ", list)
+	return true
 }
 
 // SendRequest is delegated to initialize a new HTTP request.
 // If the
-func SendRequest(url, method string, headers [][]string, bodyData []byte, skipTLS bool) *datastructure.RequestResponse {
+func (req *Request) SendRequest(url, method string, bodyData []byte, skipTLS bool) *datastructure.Response {
 
 	// Create a custom request
-	var req *http.Request
 	var err error
-	var response datastructure.RequestResponse
+	var response datastructure.Response
 
 	start := time.Now()
 
 	if skipTLS {
+		// Accept not trusted SSL Certificates
 		http.DefaultTransport.(*http.Transport).TLSClientConfig = &tls.Config{InsecureSkipVerify: true}
 	}
 
 	if !strings.HasPrefix(url, "http://") && !strings.HasPrefix(url, "https://") {
 		_error := fmt.Errorf("URL [%s] have not a compliant prefix, use http or https", url)
-		zap.S().Debug("sendRequest | ", _error)
+		log.Println("sendRequest | Error! ", _error)
 		response.Error = _error
 		return &response
 	}
@@ -62,72 +72,72 @@ func SendRequest(url, method string, headers [][]string, bodyData []byte, skipTL
 	method = strings.ToUpper(method)
 	switch method {
 	case "GET":
-		req, err = http.NewRequest("GET", url, nil)
+		req.Req, err = http.NewRequest("GET", url, nil)
 	case "POST":
 		// TODO: Allow post request without argument?
 		if bodyData == nil {
-			zap.S().Error("sendRequest | Unable to send post data without BODY data")
+			log.Println("sendRequest | Unable to send post data without BODY data")
 			err := errors.New("CALL POST without pass BODY data")
 			response.Error = err
 			return &response
 		}
-		req, err = http.NewRequest("POST", url, bytes.NewBuffer(bodyData))
+		req.Req, err = http.NewRequest("POST", url, bytes.NewBuffer(bodyData))
 	case "PUT":
-		req, err = http.NewRequest("PUT", url, nil)
+		req.Req, err = http.NewRequest("PUT", url, nil)
 	case "DELETE":
-		req, err = http.NewRequest("DELETE", url, nil)
+		req.Req, err = http.NewRequest("DELETE", url, nil)
 	default:
-		zap.S().Warn("sendRequest | Unkown method -> ", method)
+		log.Println("sendRequest | Unkown method -> ", method)
 		err := errors.New("Unkow HTTP METHOD -> " + method)
 		response.Error = err
 		return &response
 	}
 	if err != nil {
-		zap.S().Error("sendRequest | Unable to create request! | Err: ", err)
+		log.Println("sendRequest | Unable to create request! | Err: ", err)
 		response.Error = err
 		return &response
 	}
 	contentLenghtPresent := false
-	for i := range headers {
-		// zap.S().Debug("sendRequest | Adding header: ", headers[i], " Len: ", len(headers[i]))
-		key := headers[i][0]
-		value := headers[i][1]
+	for i := range req.Headers {
+		// log.Println("sendRequest | Adding header: ", headers[i], " Len: ", len(headers[i]))
+		key := req.Headers[i][0]
+		value := req.Headers[i][1]
 		if strings.Compare(`Authorization`, key) == 0 {
-			req.Header.Add(key, value)
+			req.Req.Header.Add(key, value)
 		} else {
-			req.Header.Set(key, value)
+			req.Req.Header.Set(key, value)
 		}
 		if key == "Content-Length" {
 			contentLenghtPresent = true
 		}
-		//zap.S().Debug("sendRequest | Adding header: {", key, "|", value, "}")
+		//log.Println("sendRequest | Adding header: {", key, "|", value, "}")
 
 	}
 
 	if bodyData != nil && !contentLenghtPresent {
 		contentLenght := len(bodyData)
-		zap.S().Debug("sendRequest | Content-Lenght not provided, setting new one -> ", contentLenght)
-		req.Header.Add("Content-Lenght", string(contentLenght))
+		log.Println("sendRequest | Content-Lenght not provided, setting new one -> ", contentLenght)
+		req.Req.Header.Add("Content-Lenght", string(contentLenght))
 	}
-	zap.S().Debug("sendRequest | Executing request ...")
+	log.Println("sendRequest | Executing request ...")
 	client := &http.Client{}
-	resp, err := client.Do(req)
+	resp, err := client.Do(req.Req)
 	if err != nil {
-		zap.S().Debug("Error on response | ERR:", err)
+		log.Println("Error on response | ERR:", err)
 		response.Error = err
 		return &response
 	}
 	defer resp.Body.Close()
-	//zap.S().Debug("sendRequest | Request executed, reading response ...")
+	//log.Println("sendRequest | Request executed, reading response ...")
 	bodyResp, err := ioutil.ReadAll(resp.Body)
 	if err != nil {
-		zap.S().Error("sendRequest | Unable to read response! | Err: ", err)
+		log.Println("sendRequest | Unable to read response! | Err: ", err)
 		response.Error = err
 		return &response
 	}
 	var headersResp []string
 	for k, v := range resp.Header {
-		headersResp = append(headersResp, utils.Join(k, `:`, strings.Join(v, `|`)))
+		headersResp = append(headersResp, utils.Join(k, `:`, strings.Join(v, `,`)))
 	}
 
 	response.Body = bodyResp
@@ -136,6 +146,7 @@ func SendRequest(url, method string, headers [][]string, bodyData []byte, skipTL
 	response.Error = nil
 	t := time.Now()
 	elapsed := t.Sub(start)
-	zap.S().Debug("sendRequest | Elapsed -> ", elapsed, " | STOP!")
+	response.Time = elapsed
+	log.Println("sendRequest | Elapsed -> ", elapsed, " | STOP!")
 	return &response
 }
