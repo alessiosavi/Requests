@@ -49,7 +49,6 @@ func (req *Request) CreateHeaderList(headers ...string) bool {
 }
 
 // SendRequest is delegated to initialize a new HTTP request.
-// If the
 func (req *Request) SendRequest(url, method string, bodyData []byte, skipTLS bool) *datastructure.Response {
 
 	// Create a custom request
@@ -64,8 +63,8 @@ func (req *Request) SendRequest(url, method string, bodyData []byte, skipTLS boo
 	}
 
 	if !strings.HasPrefix(url, "http://") && !strings.HasPrefix(url, "https://") {
-		_error := fmt.Errorf("URL [%s] have not a compliant prefix, use http or https", url)
-		log.Println("sendRequest | Error! ", _error)
+		_error := fmt.Errorf("PREFIX_URL_NOT_VALID")
+		log.Println("sendRequest | Error! ", _error, " URL: ", url)
 		response.Error = _error
 		return &response
 	}
@@ -78,7 +77,7 @@ func (req *Request) SendRequest(url, method string, bodyData []byte, skipTLS boo
 		// TODO: Allow post request without argument?
 		if bodyData == nil {
 			log.Println("sendRequest | Unable to send post data without BODY data")
-			err := errors.New("CALL POST without pass BODY data")
+			err := errors.New("BODY_NULL")
 			response.Error = err
 			return &response
 		}
@@ -89,15 +88,12 @@ func (req *Request) SendRequest(url, method string, bodyData []byte, skipTLS boo
 		req.Req, err = http.NewRequest("DELETE", url, nil)
 	default:
 		log.Println("sendRequest | Unkown method -> ", method)
-		err := errors.New("Unkow HTTP METHOD -> " + method)
+		err := errors.New("HTTP_METHOD_NOT_MANAGED")
+		log.Println("Unkow HTTP METHOD -> " + method)
 		response.Error = err
 		return &response
 	}
-	if err != nil {
-		log.Println("sendRequest | Unable to create request! | Err: ", err)
-		response.Error = err
-		return &response
-	}
+
 	contentLenghtPresent := false
 	for i := range req.Headers {
 		// log.Println("sendRequest | Adding header: ", headers[i], " Len: ", len(headers[i]))
@@ -124,8 +120,8 @@ func (req *Request) SendRequest(url, method string, bodyData []byte, skipTLS boo
 	client := &http.Client{}
 	resp, err := client.Do(req.Req)
 	if err != nil {
-		log.Println("Error on response | ERR:", err)
-		response.Error = err
+		log.Println("Error executing request | ERR:", err)
+		response.Error = errors.New("ERROR_SENDING_REQUEST")
 		return &response
 	}
 	defer resp.Body.Close()
@@ -133,7 +129,7 @@ func (req *Request) SendRequest(url, method string, bodyData []byte, skipTLS boo
 	bodyResp, err := ioutil.ReadAll(resp.Body)
 	if err != nil {
 		log.Println("sendRequest | Unable to read response! | Err: ", err)
-		response.Error = err
+		response.Error = errors.New("ERROR_READING_RESPONSE")
 		return &response
 	}
 	var headersResp []string

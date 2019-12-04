@@ -1,6 +1,7 @@
 package requests
 
 import (
+	"errors"
 	"testing"
 
 	"github.com/alessiosavi/Requests/datastructure"
@@ -99,4 +100,65 @@ func makeBadRequestURL2() *datastructure.Response {
 }
 func makeOKRequestURL3() *datastructure.Response {
 	return req.SendRequest("https://google.it", "GET", nil, true)
+}
+
+type headerTestCase struct {
+	input    []string
+	expected bool
+	number   int
+}
+
+func TestRequest_CreateHeaderList(t *testing.T) {
+	var request Request
+	cases := []headerTestCase{
+		headerTestCase{input: []string{"Content-Type", "text/plain"}, expected: true, number: 1},
+		headerTestCase{input: []string{"Content-Type"}, expected: false, number: 2},
+		headerTestCase{input: []string{"Content-Type", "text/plain", "Error"}, expected: false, number: 3},
+	}
+	for _, c := range cases {
+		if c.expected != request.CreateHeaderList(c.input...) {
+			t.Errorf("Expected %v for input %v [test n. %d]", c.expected, c.input, c.number)
+		}
+	}
+}
+
+type requestTestCase struct {
+	host     string
+	method   string
+	body     []byte
+	skipTLS  bool
+	expected error
+	number   int
+}
+
+func TestRequest_SendRequest(t *testing.T) {
+	var request Request
+
+	cases := []requestTestCase{
+
+		// GET
+		requestTestCase{host: "http://localhost:8081/", method: "GET", body: nil, skipTLS: false, expected: nil, number: 1},
+		requestTestCase{host: "http://localhost:8081/", method: "GET", body: nil, skipTLS: true, expected: nil, number: 2},
+		requestTestCase{host: "localhost:8081/", method: "GET", body: nil, skipTLS: false, expected: errors.New("PREFIX_URL_NOT_VALID"), number: 3},
+		// POST
+		requestTestCase{host: "http://localhost:8081/", method: "POST", body: nil, skipTLS: false, expected: errors.New("BODY_NULL"), number: 4},
+		requestTestCase{host: "http://localhost:8081/", method: "POST", body: nil, skipTLS: true, expected: errors.New("BODY_NULL"), number: 5},
+		requestTestCase{host: "localhost:8081/", method: "POST", body: []byte{}, skipTLS: true, expected: errors.New("PREFIX_URL_NOT_VALID"), number: 6},
+		requestTestCase{host: "http://localhost:8081/", method: "HEAD", body: nil, skipTLS: false, expected: errors.New("HTTP_METHOD_NOT_MANAGED"), number: 7},
+		requestTestCase{host: "http://localhost:8080/", method: "GET", body: nil, skipTLS: false, expected: errors.New("ERROR_SENDING_REQUEST"), number: 8},
+	}
+
+	for _, c := range cases {
+		resp := request.SendRequest(c.host, c.method, c.body, c.skipTLS)
+		if c.expected != resp.Error {
+			if c.expected == nil && resp.Error != nil {
+				t.Error("Url not reachable! Spawn a simple server (python3 -m http.server 8081 || python -m SimpleHTTPServer 8081)")
+				continue
+			}
+			if c.expected.Error() != resp.Error.Error() {
+				t.Errorf("Expected %v, recived %v [test n. %d]", c.expected, resp.Error, c.number)
+			}
+		}
+	}
+
 }
