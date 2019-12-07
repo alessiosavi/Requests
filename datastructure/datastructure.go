@@ -39,5 +39,6 @@ func (resp *Response) Dump() string {
 	sb.WriteString(fmt.Sprintf("%v", resp.Error))
 	sb.WriteString("\n")
 	sb.WriteString("=========================\n")
+
 	return sb.String()
 }

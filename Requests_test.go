@@ -2,6 +2,9 @@ package requests
 
 import (
 	"errors"
+	"log"
+	"net"
+	"net/http/httptest"
 	"testing"
 
 	"github.com/alessiosavi/Requests/datastructure"
@@ -37,7 +40,6 @@ func TestCreateHeaderList(t *testing.T) {
 }
 
 func TestSendRequest(t *testing.T) {
-
 	var resp *datastructure.Response
 	resp = makeBadRequestURL1()
 	if resp == nil || resp.Error == nil {
@@ -134,6 +136,21 @@ type requestTestCase struct {
 func TestRequest_SendRequest(t *testing.T) {
 	var request Request
 
+	// create a listener with the desired port.
+	l, err := net.Listen("tcp", "127.0.0.1:8081")
+	if err != nil {
+		log.Fatal(err)
+	}
+
+	ts := httptest.NewUnstartedServer(nil)
+	// NewUnstartedServer creates a listener. Close that listener and replace
+	// with the one we created.
+	ts.Listener.Close()
+	ts.Listener = l
+
+	// Start the server.
+	ts.Start()
+
 	cases := []requestTestCase{
 
 		// GET
@@ -141,11 +158,10 @@ func TestRequest_SendRequest(t *testing.T) {
 		requestTestCase{host: "http://localhost:8081/", method: "GET", body: nil, skipTLS: true, expected: nil, number: 2},
 		requestTestCase{host: "localhost:8081/", method: "GET", body: nil, skipTLS: false, expected: errors.New("PREFIX_URL_NOT_VALID"), number: 3},
 		// POST
-		requestTestCase{host: "http://localhost:8081/", method: "POST", body: nil, skipTLS: false, expected: errors.New("BODY_NULL"), number: 4},
-		requestTestCase{host: "http://localhost:8081/", method: "POST", body: nil, skipTLS: true, expected: errors.New("BODY_NULL"), number: 5},
-		requestTestCase{host: "localhost:8081/", method: "POST", body: []byte{}, skipTLS: true, expected: errors.New("PREFIX_URL_NOT_VALID"), number: 6},
-		requestTestCase{host: "http://localhost:8081/", method: "HEAD", body: nil, skipTLS: false, expected: errors.New("HTTP_METHOD_NOT_MANAGED"), number: 7},
-		requestTestCase{host: "http://localhost:8080/", method: "GET", body: nil, skipTLS: false, expected: errors.New("ERROR_SENDING_REQUEST"), number: 8},
+		requestTestCase{host: "localhost:8081/", method: "POST", body: []byte{}, skipTLS: true, expected: errors.New("PREFIX_URL_NOT_VALID"), number: 4},
+		requestTestCase{host: "localhost:8081/", method: "POST", body: nil, skipTLS: true, expected: errors.New("PREFIX_URL_NOT_VALID"), number: 5},
+		requestTestCase{host: "http://localhost:8081/", method: "HEAD", body: nil, skipTLS: false, expected: errors.New("HTTP_METHOD_NOT_MANAGED"), number: 6},
+		requestTestCase{host: "http://localhost:8080/", method: "GET", body: nil, skipTLS: false, expected: errors.New("ERROR_SENDING_REQUEST"), number: 7},
 	}
 
 	for _, c := range cases {
@@ -155,10 +171,13 @@ func TestRequest_SendRequest(t *testing.T) {
 				t.Error("Url not reachable! Spawn a simple server (python3 -m http.server 8081 || python -m SimpleHTTPServer 8081)")
 				continue
 			}
+
 			if c.expected.Error() != resp.Error.Error() {
-				t.Errorf("Expected %v, recived %v [test n. %d]", c.expected, resp.Error, c.number)
+				t.Errorf("Expected %v, received %v [test n. %d]", c.expected, resp.Error, c.number)
 			}
 		}
 	}
 
+	// Cleanup.
+	ts.Close()
 }

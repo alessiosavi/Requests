@@ -39,7 +39,6 @@ func examplePOSTRequest() {
 
 	// Or print them
 	fmt.Println(response.Dump())
-
 }
 
 func exampleGETRequest() {
@@ -65,5 +64,4 @@ func exampleGETRequest() {
 	fmt.Println("Time elapsed: ", response.Time)
 	fmt.Println("Error: ", response.Error)
 	fmt.Println("Body: ", string(response.Body))
-
 }

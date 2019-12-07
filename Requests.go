@@ -4,7 +4,6 @@ import (
 	"bytes"
 	"crypto/tls"
 	"errors"
-	"fmt"
 	"io/ioutil"
 	"log"
 	"net/http"
@@ -12,29 +11,45 @@ import (
 	"strings"
 	"time"
 
-	utils "github.com/alessiosavi/GoUtils"
 	"github.com/alessiosavi/Requests/datastructure"
 )
 
+// AllowedMethod rappresent the HTTP method allowed in the request
+var allowedMethod []string = []string{"GET", "POST", "HEAD", "PUT", "DELETE", "OPTIONS"}
+
+func (req *Request) methodIsAllowed(method string) bool {
+	for i := range allowedMethod {
+		if method == allowedMethod[i] {
+			req.Method = method
+			return true
+		}
+	}
+	return false
+}
+
 type Request struct {
-	Headers [][]string
 	Req     *http.Request
-	Resp    datastructure.Response
+	Method  string                 // HTTP method of the request
+	Url     string                 // URL where send the request
+	Data    []byte                 // BODY in case of POST, ARGS in case of GET
+	Headers [][]string             // List of headers to send in the request
+	Resp    datastructure.Response // Struct for save the response
 }
 
 // CreateHeaderList is delegated to initialize a list of headers.
 // Every row of the matrix contains [key,value]
 func (req *Request) CreateHeaderList(headers ...string) bool {
-	lenght := len(headers)
+	length := len(headers)
 
 	if len(headers)%2 != 0 {
 		log.Println(`Headers have to be a "key:value" list`)
 		return false
 	}
 
-	req.Headers = make([][]string, lenght/2)
+	req.Headers = make([][]string, length/2)
 	counter := 0
-	for i := 0; i < lenght; i += 2 {
+
+	for i := 0; i < length; i += 2 {
 		tmp := make([]string, 2)
 		key := headers[i]
 		value := headers[i+1]
@@ -48,14 +63,41 @@ func (req *Request) CreateHeaderList(headers ...string) bool {
 	return true
 }
 
+func (req *Request) initPostRequest() {
+	if strings.ToUpper(req.Method) == "POST" {
+		if req.Data == nil {
+			req.Data = []byte("")
+		}
+	}
+}
+
+func (req *Request) initGetRequest() {
+	if strings.ToUpper(req.Method) == "GET" && req.Data != nil {
+		args := string(req.Data)
+		// Arguments are not in the URL, concatenate the args in the URL
+		if !strings.Contains(req.Url, "?") {
+			// Overwrite the "/" with the provided params
+			if strings.HasSuffix(req.Url, "/") {
+				index := strings.LastIndex(req.Url, "/")
+				req.Url = req.Url[:index]
+			}
+			req.Url += "?" + args
+		} else { // adding additional parameter to the one provided in the URL
+			req.Url += "&" + args
+		}
+	}
+}
+
 // SendRequest is delegated to initialize a new HTTP request.
 func (req *Request) SendRequest(url, method string, bodyData []byte, skipTLS bool) *datastructure.Response {
-
 	// Create a custom request
-	var err error
-	var response datastructure.Response
+	var (
+		err      error
+		response datastructure.Response
+		start    time.Time
+	)
 
-	start := time.Now()
+	start = time.Now()
 
 	if skipTLS {
 		// Accept not trusted SSL Certificates
@@ -63,38 +105,48 @@ func (req *Request) SendRequest(url, method string, bodyData []byte, skipTLS boo
 	}
 
 	if !strings.HasPrefix(url, "http://") && !strings.HasPrefix(url, "https://") {
-		_error := fmt.Errorf("PREFIX_URL_NOT_VALID")
+		_error := errors.New("PREFIX_URL_NOT_VALID")
 		log.Println("sendRequest | Error! ", _error, " URL: ", url)
 		response.Error = _error
 		return &response
 	}
 
 	method = strings.ToUpper(method)
-	switch method {
+
+	// Validate method
+	if !req.methodIsAllowed(method) {
+		log.Println("sendRequest | Method [" + method + "] is not allowed!")
+		_error := errors.New("METHOD_NOT_ALLOWED")
+		response.Error = _error
+		return &response
+	}
+
+	req.Url = url
+	req.Data = bodyData
+
+	switch req.Method {
 	case "GET":
-		req.Req, err = http.NewRequest("GET", url, nil)
+		req.initGetRequest()
+		req.Req, err = http.NewRequest(req.Method, req.Url, nil)
 	case "POST":
-		// TODO: Allow post request without argument?
-		if bodyData == nil {
-			log.Println("sendRequest | Unable to send post data without BODY data")
-			err := errors.New("BODY_NULL")
-			response.Error = err
-			return &response
-		}
-		req.Req, err = http.NewRequest("POST", url, bytes.NewBuffer(bodyData))
+		req.initPostRequest()
+		req.Req, err = http.NewRequest(req.Method, req.Url, bytes.NewReader(req.Data))
 	case "PUT":
-		req.Req, err = http.NewRequest("PUT", url, nil)
+		req.Req, err = http.NewRequest(req.Method, req.Url, nil)
 	case "DELETE":
-		req.Req, err = http.NewRequest("DELETE", url, nil)
+		req.Req, err = http.NewRequest(req.Method, req.Url, nil)
 	default:
-		log.Println("sendRequest | Unkown method -> ", method)
-		err := errors.New("HTTP_METHOD_NOT_MANAGED")
-		log.Println("Unkow HTTP METHOD -> " + method)
+		log.Println("sendRequest | Unknown method -> " + method)
+		err = errors.New("HTTP_METHOD_NOT_MANAGED")
+	}
+
+	if err != nil {
+		log.Println("sendRequest | Error while initializing a new request -> ", err)
 		response.Error = err
 		return &response
 	}
 
-	contentLenghtPresent := false
+	contentlengthPresent := false
 	for i := range req.Headers {
 		// log.Println("sendRequest | Adding header: ", headers[i], " Len: ", len(headers[i]))
 		key := req.Headers[i][0]
@@ -105,16 +157,15 @@ func (req *Request) SendRequest(url, method string, bodyData []byte, skipTLS boo
 			req.Req.Header.Set(key, value)
 		}
 		if key == "Content-Length" {
-			contentLenghtPresent = true
+			contentlengthPresent = true
 		}
 		//log.Println("sendRequest | Adding header: {", key, "|", value, "}")
-
 	}
 
-	if bodyData != nil && !contentLenghtPresent {
-		contentLenght := len(bodyData)
-		// log.Println("sendRequest | Content-Lenght not provided, setting new one -> ", contentLenght)
-		req.Req.Header.Add("Content-Lenght", strconv.Itoa(contentLenght))
+	if bodyData != nil && !contentlengthPresent {
+		contentlength := len(bodyData)
+		// log.Println("sendRequest | Content-length not provided, setting new one -> ", contentlength)
+		req.Req.Header.Add("Content-Length", strconv.Itoa(contentlength))
 	}
 	// log.Println("sendRequest | Executing request ...")
 	client := &http.Client{}
@@ -134,7 +185,7 @@ func (req *Request) SendRequest(url, method string, bodyData []byte, skipTLS boo
 	}
 	var headersResp []string
 	for k, v := range resp.Header {
-		headersResp = append(headersResp, utils.Join(k, `:`, strings.Join(v, `,`)))
+		headersResp = append(headersResp, join(k, `:`, strings.Join(v, `,`)))
 	}
 
 	response.Body = bodyResp
@@ -146,4 +197,13 @@ func (req *Request) SendRequest(url, method string, bodyData []byte, skipTLS boo
 	response.Time = elapsed
 	// log.Println("sendRequest | Elapsed -> ", elapsed, " | STOP!")
 	return &response
+}
+
+// Join is a quite efficient string concatenator
+func join(strs ...string) string {
+	var sb strings.Builder
+	for _, str := range strs {
+		sb.WriteString(str)
+	}
+	return sb.String()
 }
