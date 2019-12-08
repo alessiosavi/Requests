@@ -131,6 +131,7 @@ func InitRequest(url, method string, bodyData []byte, headers []string, skipTLS 
 	var req Request
 
 	req.SkipTLS = skipTLS
+
 	if !strings.HasPrefix(url, "http://") && !strings.HasPrefix(url, "https://") {
 		err = errors.New("PREFIX_URL_NOT_VALID")
 		log.Debug("sendRequest | Error! ", err, " URL: ", url)
@@ -254,13 +255,18 @@ func (req *Request) SendRequest(url, method string, bodyData []byte, skipTLS boo
 		err      error
 		response datastructure.Response
 		start    time.Time
+		tr       *http.Transport
 	)
 
 	start = time.Now()
 
-	if skipTLS {
+	req.SkipTLS = skipTLS
+
+	if req.SkipTLS {
 		// Accept not trusted SSL Certificates
-		http.DefaultTransport.(*http.Transport).TLSClientConfig = &tls.Config{InsecureSkipVerify: true}
+		tr = &http.Transport{TLSClientConfig: &tls.Config{InsecureSkipVerify: true}}
+	} else {
+		tr = &http.Transport{TLSClientConfig: &tls.Config{InsecureSkipVerify: false}}
 	}
 
 	if !strings.HasPrefix(url, "http://") && !strings.HasPrefix(url, "https://") {
@@ -327,7 +333,7 @@ func (req *Request) SendRequest(url, method string, bodyData []byte, skipTLS boo
 		req.Req.Header.Add("Content-Length", strconv.Itoa(contentlength))
 	}
 	// log.Debug("sendRequest | Executing request ...")
-	client := &http.Client{}
+	client := &http.Client{Transport: tr}
 	resp, err := client.Do(req.Req)
 	if err != nil {
 		log.Debug("Error executing request | ERR:", err)

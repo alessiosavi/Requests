@@ -9,8 +9,8 @@ import (
 )
 
 func main() {
-	// exampleGETRequest()
-	// examplePOSTRequest()
+	exampleGETRequest()
+	examplePOSTRequest()
 	exampleParallelRequest()
 }
 
@@ -87,6 +87,7 @@ func exampleParallelRequest() {
 	var N int = 12
 	// Create the list of request
 	for i := 0; i < 1000; i++ {
+		// Run against the `server_example.py` present in this folder
 		req, err := requests.InitRequest("https://127.0.0.1:5000", "GET", nil, nil, i%2 == 0) // Alternate cert validation
 		if err != nil {
 			log.Println("Skipping request [", i, "]. Error: ", err)
@@ -95,8 +96,10 @@ func exampleParallelRequest() {
 		}
 	}
 
+	// Run the request in parallel
 	response = requests.ParallelRequest(reqs, N)
 	for i := range response {
+		// Print the response
 		log.Println("Request [", i, "] -> ", response[i].Dump())
 	}
 }
