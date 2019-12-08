@@ -48,7 +48,7 @@ func TestSendRequest(t *testing.T) {
 	} else {
 		t.Log("makeBadRequestURL1 Passed!")
 	}
-	t.Log(resp.Dump())
+	// t.Log(resp.Dump())
 
 	resp = makeBadRequestURL2()
 	if resp == nil || resp.Error == nil {
@@ -56,7 +56,7 @@ func TestSendRequest(t *testing.T) {
 	} else {
 		t.Log("makeBadRequestURL2 Passed!")
 	}
-	t.Log(resp.Dump())
+	// t.Log(resp.Dump())
 
 	resp = makeOKRequestURL3()
 	if resp == nil || resp.Error != nil || resp.StatusCode != 200 {
@@ -64,7 +64,7 @@ func TestSendRequest(t *testing.T) {
 	} else {
 		t.Log("makeOKRequestURL3 Passed!")
 	}
-	t.Log(resp.Dump())
+	// t.Log(resp.Dump())
 }
 
 func BenchmarkRequestGETWithoutTLS(t *testing.B) {
@@ -173,7 +173,7 @@ func TestRequest_SendRequest(t *testing.T) {
 				continue
 			}
 
-			if c.expected.Error() != resp.Error.Error() {
+			if !strings.Contains(resp.Error.Error(), c.expected.Error()) {
 				t.Errorf("Expected %v, received %v [test n. %d]", c.expected, resp.Error, c.number)
 			}
 		}
@@ -198,7 +198,7 @@ func TestRequest_InitRequest(t *testing.T) {
 	}
 
 	for _, c := range cases {
-		_, err := InitRequest(c.host, c.method, c.body, c.skipTLS)
+		_, err := InitRequest(c.host, c.method, c.body, nil, c.skipTLS)
 		if c.expected != err {
 			if c.expected.Error() != err.Error() {
 				t.Errorf("Expected %v, received %v [test n. %d]", c.expected, err.Error(), c.number)
@@ -237,7 +237,7 @@ func TestRequest_ExecuteRequest(t *testing.T) {
 	}
 
 	for _, c := range cases {
-		req, err := InitRequest(c.host, c.method, c.body, c.skipTLS)
+		req, err := InitRequest(c.host, c.method, c.body, nil, c.skipTLS)
 		if err == nil {
 			resp := req.ExecuteRequest()
 			if c.expected != resp.Error {

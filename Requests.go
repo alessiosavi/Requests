@@ -48,11 +48,16 @@ type Request struct {
 	Data    []byte                 // BODY in case of POST, ARGS in case of GET
 	Headers [][]string             // List of headers to send in the request
 	Resp    datastructure.Response // Struct for save the response
+	SkipTLS bool                   // Skip or not the SSL certificate validation
 }
 
 // CreateHeaderList is delegated to initialize a list of headers.
 // Every row of the matrix contains [key,value]
 func (req *Request) CreateHeaderList(headers ...string) bool {
+	if headers == nil {
+		return false
+	}
+
 	length := len(headers)
 
 	if len(headers)%2 != 0 {
@@ -106,9 +111,10 @@ func (req *Request) initGetRequest() {
 
 func ParallelRequest(reqs []Request, N int) []datastructure.Response {
 	var wg sync.WaitGroup
-	var results []datastructure.Response = make([]datastructure.Response, N)
+	var results []datastructure.Response = make([]datastructure.Response, len(reqs))
 	semaphore := make(chan struct{}, N)
-	for i := 0; i < N; i++ {
+	wg.Add(len(reqs))
+	for i := 0; i < len(reqs); i++ {
 		go func(i int) {
 			semaphore <- struct{}{}
 			defer func() { <-semaphore }()
@@ -116,19 +122,15 @@ func ParallelRequest(reqs []Request, N int) []datastructure.Response {
 			results[i] = reqs[i].ExecuteRequest()
 		}(i)
 	}
-	wg.Add(N)
 	wg.Wait()
 	return results
 }
 
-func InitRequest(url, method string, bodyData []byte, skipTLS bool) (*Request, error) {
+func InitRequest(url, method string, bodyData []byte, headers []string, skipTLS bool) (*Request, error) {
 	var err error
 	var req Request
-	if skipTLS {
-		// Accept not trusted SSL Certificates
-		http.DefaultTransport.(*http.Transport).TLSClientConfig = &tls.Config{InsecureSkipVerify: true}
-	}
 
+	req.SkipTLS = skipTLS
 	if !strings.HasPrefix(url, "http://") && !strings.HasPrefix(url, "https://") {
 		err = errors.New("PREFIX_URL_NOT_VALID")
 		log.Debug("sendRequest | Error! ", err, " URL: ", url)
@@ -147,6 +149,7 @@ func InitRequest(url, method string, bodyData []byte, skipTLS bool) (*Request, e
 	req.Url = url
 	req.Data = bodyData
 
+	req.CreateHeaderList(headers...)
 	switch req.Method {
 	case "GET":
 		req.initGetRequest()
@@ -200,8 +203,16 @@ func (req *Request) ExecuteRequest() datastructure.Response {
 	var start time.Time = time.Now()
 	var err error
 
+	var tr *http.Transport
+	if req.SkipTLS {
+		// Accept not trusted SSL Certificates
+		tr = &http.Transport{TLSClientConfig: &tls.Config{InsecureSkipVerify: true}}
+	} else {
+		tr = &http.Transport{TLSClientConfig: &tls.Config{InsecureSkipVerify: false}}
+	}
+
 	log.Debug("sendRequest | Executing request ...")
-	client := &http.Client{}
+	client := &http.Client{Transport: tr}
 	resp, err := client.Do(req.Req)
 
 	if err != nil {
