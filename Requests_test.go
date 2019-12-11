@@ -7,6 +7,7 @@ import (
 	"net/http/httptest"
 	"strings"
 	"testing"
+	"time"
 
 	"github.com/alessiosavi/Requests/datastructure"
 )
@@ -208,7 +209,6 @@ func TestRequest_InitRequest(t *testing.T) {
 }
 
 func TestRequest_ExecuteRequest(t *testing.T) {
-
 	// create a listener with the desired port.
 	l, err := net.Listen("tcp", "127.0.0.1:8081")
 	if err != nil {
@@ -250,9 +250,40 @@ func TestRequest_ExecuteRequest(t *testing.T) {
 					t.Errorf("Expected %v, received %v [test n. %d]", c.expected, resp.Error, c.number)
 				}
 			}
-
 		}
+	}
+	// Cleanup.
+	ts.Close()
+}
 
+type timeoutTestCase struct {
+	host    string
+	method  string
+	body    []byte
+	skipTLS bool
+	time    time.Duration
+	number  int
+}
+
+func TestRequest_Timeout(t *testing.T) {
+	// Need to run the server present in example/server_example.py
+	cases := []timeoutTestCase{
+		// GET
+		timeoutTestCase{host: "https://localhost:5000/timeout", method: "GET", body: nil, skipTLS: true, time: 10 * time.Second, number: 1},
 	}
 
+	for _, c := range cases {
+		req, err := InitRequest(c.host, c.method, c.body, nil, c.skipTLS)
+		if err == nil {
+			start := time.Now()
+			resp := req.ExecuteRequest()
+			elapsed := time.Since(start)
+			if resp.Error != nil {
+				t.Errorf("Received an error -> %v [test n. %d]", resp.Error, c.number)
+			}
+			if elapsed < c.time {
+				t.Error("Error timeout")
+			}
+		}
+	}
 }

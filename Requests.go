@@ -42,26 +42,65 @@ func (req *Request) methodIsAllowed(method string) bool {
 }
 
 type Request struct {
-	Req     *http.Request
+	Req     *http.Request          // Request
+	Tr      *http.Transport        // Transport layer, used for enable/disable TLS verification
 	Method  string                 // HTTP method of the request
 	Url     string                 // URL where send the request
 	Data    []byte                 // BODY in case of POST, ARGS in case of GET
 	Headers [][]string             // List of headers to send in the request
 	Resp    datastructure.Response // Struct for save the response
-	SkipTLS bool                   // Skip or not the SSL certificate validation
+	Timeout time.Duration          // Timeout of the request
+}
+
+// SetTimeout is delegated to set a timeout different from the default one.
+// It take the unit of the time, and an integer related to the time to wait
+// Ex: MS, 100 (100 milliseconds)
+func (req *Request) SetTimeout(unit string, value int) {
+	var t time.Duration
+	if value == 0 {
+		log.Warning("WARNING! Setting a timeout of 0 means inifite timeout!!")
+		req.Timeout = 0
+		return
+	} else if value < 0 { // Don't allow value < 0
+		value = -value
+	}
+	mul := time.Duration(value)
+
+	switch strings.ToUpper(unit) {
+	case "NS":
+		// Nanoseconds
+		t = time.Nanosecond * mul
+	case "MS":
+		// Milliseconds
+		t = time.Millisecond * mul
+	case "S":
+		// Seconds
+		t = time.Second * mul
+	case "M":
+		// Minutes
+		t = time.Minute * mul
+	default:
+		log.Warning("WARNING! [" + unit + "] is not a valid unit! Falling back to milliseconds!")
+		unit = "MS"
+		t = time.Millisecond * mul
+	}
+
+	log.Info("Setting a timeout of [", value, "] "+unit)
+	req.Timeout = t
 }
 
 // CreateHeaderList is delegated to initialize a list of headers.
 // Every row of the matrix contains [key,value]
 func (req *Request) CreateHeaderList(headers ...string) bool {
 	if headers == nil {
+		req.Headers = [][]string{}
 		return false
 	}
 
 	length := len(headers)
 
 	if len(headers)%2 != 0 {
-		log.Debug(`Headers have to be a "key:value" list`)
+		log.Debug(`Headers have to be a "key:value" list. Got instead a odd number of elements`)
 		return false
 	}
 
@@ -74,11 +113,11 @@ func (req *Request) CreateHeaderList(headers ...string) bool {
 		value := headers[i+1]
 		tmp[0] = key
 		tmp[1] = value
-		//log.Debug("createHeaderList | ", i, ") Key: ", key, " Value: ", value)
+		log.Debug("createHeaderList | ", counter, ") Key: ", key, " Value: ", value)
 		req.Headers[counter] = tmp
 		counter++
 	}
-	//log.Debug("createHeaderList | LIST: ", list)
+	log.Debug("createHeaderList | LIST: ", req.Headers)
 	return true
 }
 
@@ -108,7 +147,6 @@ func (req *Request) initGetRequest() {
 }
 
 // ParallelRequest is delegated to run the given list of request in parallel, using N request at each time
-
 func ParallelRequest(reqs []Request, N int) []datastructure.Response {
 	var wg sync.WaitGroup
 	var results []datastructure.Response = make([]datastructure.Response, len(reqs))
@@ -126,11 +164,22 @@ func ParallelRequest(reqs []Request, N int) []datastructure.Response {
 	return results
 }
 
+func (req *Request) SetTLS(skipTLS bool) {
+	if skipTLS {
+		// Accept not trusted SSL Certificates
+		req.Tr = &http.Transport{TLSClientConfig: &tls.Config{InsecureSkipVerify: true}}
+		log.Debug("TLS certificate validation disabled")
+	} else {
+		req.Tr = &http.Transport{TLSClientConfig: &tls.Config{InsecureSkipVerify: false}}
+		log.Debug("TLS certificate validation enabled")
+	}
+}
+
+// InitRequest is delegated to initialize a new request.
+// NOTE: it will use the default timeout -> NO TIMEOUT
 func InitRequest(url, method string, bodyData []byte, headers []string, skipTLS bool) (*Request, error) {
 	var err error
 	var req Request
-
-	req.SkipTLS = skipTLS
 
 	if !strings.HasPrefix(url, "http://") && !strings.HasPrefix(url, "https://") {
 		err = errors.New("PREFIX_URL_NOT_VALID")
@@ -142,15 +191,21 @@ func InitRequest(url, method string, bodyData []byte, headers []string, skipTLS 
 
 	// Validate HTTP method
 	if !req.methodIsAllowed(method) {
-		log.Debug("sendRequest | Method [" + method + "] is not allowed!")
+		log.Warning("sendRequest | Method [" + method + "] is not allowed!")
 		err = errors.New("METHOD_NOT_ALLOWED")
 		return nil, err
 	}
 
+	// Manage TLS configuration
+	req.SetTLS(skipTLS)
+	// Set infinite timeout as default http/net
+	req.SetTimeout("--", 0)
+	// Create headers list
+	req.CreateHeaderList(headers...)
+
 	req.Url = url
 	req.Data = bodyData
 
-	req.CreateHeaderList(headers...)
 	switch req.Method {
 	case "GET":
 		req.initGetRequest()
@@ -189,7 +244,7 @@ func InitRequest(url, method string, bodyData []byte, headers []string, skipTLS 
 	}
 
 	// If data are present and content lenght was not specified (only for POST)
-	if req.Method == "POST" && bodyData != nil && !contentlengthPresent {
+	if req.Method == "POST" && !contentlengthPresent {
 		contentlength := len(bodyData)
 		log.Debug("sendRequest | Content-length not provided, setting new one -> ", contentlength)
 		req.Req.Header.Add("Content-Length", strconv.Itoa(contentlength))
@@ -204,16 +259,8 @@ func (req *Request) ExecuteRequest() datastructure.Response {
 	var start time.Time = time.Now()
 	var err error
 
-	var tr *http.Transport
-	if req.SkipTLS {
-		// Accept not trusted SSL Certificates
-		tr = &http.Transport{TLSClientConfig: &tls.Config{InsecureSkipVerify: true}}
-	} else {
-		tr = &http.Transport{TLSClientConfig: &tls.Config{InsecureSkipVerify: false}}
-	}
-
 	log.Debug("sendRequest | Executing request ...")
-	client := &http.Client{Transport: tr}
+	client := &http.Client{Transport: req.Tr, Timeout: req.Timeout}
 	resp, err := client.Do(req.Req)
 
 	if err != nil {
@@ -240,10 +287,9 @@ func (req *Request) ExecuteRequest() datastructure.Response {
 	response.StatusCode = resp.StatusCode
 	response.Headers = headersResp
 	response.Error = nil
-	t := time.Now()
-	elapsed := t.Sub(start)
+	elapsed := time.Since(start)
 	response.Time = elapsed
-	// log.Debug("sendRequest | Elapsed -> ", elapsed, " | STOP!")
+	log.Debug("sendRequest | Elapsed -> ", elapsed, " | STOP!")
 	return response
 }
 
@@ -255,19 +301,9 @@ func (req *Request) SendRequest(url, method string, bodyData []byte, skipTLS boo
 		err      error
 		response datastructure.Response
 		start    time.Time
-		tr       *http.Transport
 	)
 
 	start = time.Now()
-
-	req.SkipTLS = skipTLS
-
-	if req.SkipTLS {
-		// Accept not trusted SSL Certificates
-		tr = &http.Transport{TLSClientConfig: &tls.Config{InsecureSkipVerify: true}}
-	} else {
-		tr = &http.Transport{TLSClientConfig: &tls.Config{InsecureSkipVerify: false}}
-	}
 
 	if !strings.HasPrefix(url, "http://") && !strings.HasPrefix(url, "https://") {
 		_error := errors.New("PREFIX_URL_NOT_VALID")
@@ -285,6 +321,11 @@ func (req *Request) SendRequest(url, method string, bodyData []byte, skipTLS boo
 		response.Error = _error
 		return &response
 	}
+
+	// Manage TLS configuration
+	req.SetTLS(skipTLS)
+	// Set infinite timeout as default http/net
+	req.SetTimeout("--", 0)
 
 	req.Url = url
 	req.Data = bodyData
@@ -313,7 +354,7 @@ func (req *Request) SendRequest(url, method string, bodyData []byte, skipTLS boo
 
 	contentlengthPresent := false
 	for i := range req.Headers {
-		// log.Debug("sendRequest | Adding header: ", headers[i], " Len: ", len(headers[i]))
+		log.Debug("sendRequest | Adding header: ", req.Headers[i], " Len: ", len(req.Headers[i]))
 		key := req.Headers[i][0]
 		value := req.Headers[i][1]
 		if strings.EqualFold(`Authorization`, key) {
@@ -324,24 +365,25 @@ func (req *Request) SendRequest(url, method string, bodyData []byte, skipTLS boo
 		if strings.EqualFold("Content-Length", key) {
 			contentlengthPresent = true
 		}
-		//log.Debug("sendRequest | Adding header: {", key, "|", value, "}")
+		log.Debug("sendRequest | Adding header: {", key, "|", value, "}")
 	}
 
-	if req.Method == "POST" && bodyData != nil && !contentlengthPresent {
+	if req.Method == "POST" && !contentlengthPresent {
 		contentlength := len(bodyData)
-		// log.Debug("sendRequest | Content-length not provided, setting new one -> ", contentlength)
+		log.Debug("sendRequest | Content-length not provided, setting new one -> ", contentlength)
 		req.Req.Header.Add("Content-Length", strconv.Itoa(contentlength))
 	}
-	// log.Debug("sendRequest | Executing request ...")
-	client := &http.Client{Transport: tr}
+	log.Debug("sendRequest | Executing request ...")
+	client := &http.Client{Transport: req.Tr, Timeout: req.Timeout}
 	resp, err := client.Do(req.Req)
+
 	if err != nil {
 		log.Debug("Error executing request | ERR:", err)
 		response.Error = errors.New("ERROR_SENDING_REQUEST -> " + err.Error())
 		return &response
 	}
 	defer resp.Body.Close()
-	//log.Debug("sendRequest | Request executed, reading response ...")
+	log.Debug("sendRequest | Request executed, reading response ...")
 	bodyResp, err := ioutil.ReadAll(resp.Body)
 	if err != nil {
 		log.Debug("sendRequest | Unable to read response! | Err: ", err)
@@ -357,10 +399,9 @@ func (req *Request) SendRequest(url, method string, bodyData []byte, skipTLS boo
 	response.StatusCode = resp.StatusCode
 	response.Headers = headersResp
 	response.Error = nil
-	t := time.Now()
-	elapsed := t.Sub(start)
+	elapsed := time.Since(start)
 	response.Time = elapsed
-	// log.Debug("sendRequest | Elapsed -> ", elapsed, " | STOP!")
+	log.Debug("sendRequest | Elapsed -> ", elapsed, " | STOP!")
 	return &response
 }
 
