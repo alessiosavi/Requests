@@ -261,7 +261,7 @@ type timeoutTestCase struct {
 	method  string
 	body    []byte
 	skipTLS bool
-	time    time.Duration
+	time    int
 	number  int
 }
 
@@ -269,21 +269,20 @@ func TestRequest_Timeout(t *testing.T) {
 	// Need to run the server present in example/server_example.py
 	cases := []timeoutTestCase{
 		// GET
-		timeoutTestCase{host: "https://localhost:5000/timeout", method: "GET", body: nil, skipTLS: true, time: 10 * time.Second, number: 1},
+		timeoutTestCase{host: "https://localhost:5000/timeout", method: "GET", body: nil, skipTLS: true, time: 11, number: 1},
 	}
 
 	for _, c := range cases {
-		req, err := InitRequest(c.host, c.method, c.body, nil, c.skipTLS)
-		if err == nil {
-			start := time.Now()
-			resp := req.ExecuteRequest()
-			elapsed := time.Since(start)
-			if resp.Error != nil {
-				t.Errorf("Received an error -> %v [test n. %d]", resp.Error, c.number)
-			}
-			if elapsed < c.time {
-				t.Error("Error timeout")
-			}
+		var req Request // = InitDebugRequest()
+		req.SetTimeout("S", c.time)
+		start := time.Now()
+		resp := req.SendRequest(c.host, c.method, c.body, c.skipTLS)
+		elapsed := time.Since(start)
+		if resp.Error != nil {
+			t.Errorf("Received an error -> %v [test n. %d]", resp.Error, c.number)
+		}
+		if time.Duration(c.time)*time.Second < elapsed {
+			t.Error("Error timeout")
 		}
 	}
 }

@@ -4,11 +4,13 @@ import (
 	"bytes"
 	"crypto/tls"
 	"errors"
+	"fmt"
 	"io/ioutil"
 	"net/http"
 	"strconv"
 	"strings"
 	"sync"
+	"syscall"
 	"time"
 
 	"github.com/alessiosavi/Requests/datastructure"
@@ -18,28 +20,6 @@ import (
 
 // AllowedMethod rappresent the HTTP method allowed in the request
 var allowedMethod []string = []string{"GET", "POST", "HEAD", "PUT", "DELETE", "OPTIONS"}
-
-func InitDebugRequest() Request {
-	Formatter := new(log.TextFormatter)
-	Formatter.TimestampFormat = "Jan _2 15:04:05.000000000"
-	Formatter.FullTimestamp = true
-	Formatter.ForceColors = true
-	log.AddHook(filename.NewHook()) // Print filename + line at every log
-	log.SetFormatter(Formatter)
-	log.SetLevel(log.DebugLevel)
-	return Request{}
-
-}
-
-func (req *Request) methodIsAllowed(method string) bool {
-	for i := range allowedMethod {
-		if method == allowedMethod[i] {
-			req.Method = method
-			return true
-		}
-	}
-	return false
-}
 
 type Request struct {
 	Req     *http.Request          // Request
@@ -52,18 +32,45 @@ type Request struct {
 	Timeout time.Duration          // Timeout of the request
 }
 
+// InitDebugRequest is delegated to set the log level in order to debug the flow
+func InitDebugRequest() Request {
+	Formatter := new(log.TextFormatter)
+	Formatter.TimestampFormat = "Jan _2 15:04:05.000000000"
+	Formatter.FullTimestamp = true
+	Formatter.ForceColors = true
+	log.AddHook(filename.NewHook()) // Print filename + line at every log
+	log.SetFormatter(Formatter)
+	log.SetLevel(log.DebugLevel)
+	return Request{}
+
+}
+
+// methodIsAllowed is delegated to verify if the given HTTP Method is compliant
+func (req *Request) methodIsAllowed(method string) bool {
+	for i := range allowedMethod {
+		if method == allowedMethod[i] {
+			req.Method = method
+			return true
+		}
+	}
+	return false
+}
+
 // SetTimeout is delegated to set a timeout different from the default one.
 // It take the unit of the time, and an integer related to the time to wait
 // Ex: MS, 100 (100 milliseconds)
+// NOTE: The default timeout (0) means no timeout waiting -> infinite timeout
 func (req *Request) SetTimeout(unit string, value int) {
 	var t time.Duration
 	if value == 0 {
 		log.Warning("WARNING! Setting a timeout of 0 means inifite timeout!!")
 		req.Timeout = 0
 		return
-	} else if value < 0 { // Don't allow value < 0
+	} else if value < 0 {
+		// Don't allow value < 0
 		value = -value
 	}
+
 	mul := time.Duration(value)
 
 	switch strings.ToUpper(unit) {
@@ -140,16 +147,36 @@ func (req *Request) initGetRequest() {
 				req.Url = req.Url[:index]
 			}
 			req.Url += "?" + args
-		} else { // adding additional parameter to the one provided in the URL
+		} else {
+			// adding additional parameter to the one provided in the URL
 			req.Url += "&" + args
 		}
 	}
 }
 
-// ParallelRequest is delegated to run the given list of request in parallel, using N request at each time
+// GetUlimitValue return the current and max value for ulimit
+func GetUlimitValue() (uint64, uint64) {
+	var rLimit syscall.Rlimit
+	err := syscall.Getrlimit(syscall.RLIMIT_NOFILE, &rLimit)
+	if err != nil {
+		fmt.Println("Error Getting Rlimit ", err)
+	}
+	fmt.Println(rLimit)
+
+	return rLimit.Cur, rLimit.Max
+}
+
+// ParallelRequest is delegated to run the given list of request in parallel, sending N request at each time
 func ParallelRequest(reqs []Request, N int) []datastructure.Response {
 	var wg sync.WaitGroup
 	var results []datastructure.Response = make([]datastructure.Response, len(reqs))
+
+	ulimitCurr, _ := GetUlimitValue()
+	if uint64(N) > ulimitCurr {
+		N = int(ulimitCurr)
+		log.Warning("Provided a thread factor greater than current ulimit size, setting at MAX [", N, "] requests")
+	}
+
 	semaphore := make(chan struct{}, N)
 	wg.Add(len(reqs))
 	for i := 0; i < len(reqs); i++ {
@@ -164,6 +191,7 @@ func ParallelRequest(reqs []Request, N int) []datastructure.Response {
 	return results
 }
 
+// SetTLS is delegated to enable/disable TLS certificate validation
 func (req *Request) SetTLS(skipTLS bool) {
 	if skipTLS {
 		// Accept not trusted SSL Certificates
@@ -175,8 +203,8 @@ func (req *Request) SetTLS(skipTLS bool) {
 	}
 }
 
-// InitRequest is delegated to initialize a new request.
-// NOTE: it will use the default timeout -> NO TIMEOUT
+// InitRequest is delegated to initialize a new request with the given parameter.
+// NOTE: it will use the default timeout -> NO TIMEOUT. In order to specify a different timeout you can use the delegated method
 func InitRequest(url, method string, bodyData []byte, headers []string, skipTLS bool) (*Request, error) {
 	var err error
 	var req Request
@@ -243,11 +271,11 @@ func InitRequest(url, method string, bodyData []byte, headers []string, skipTLS 
 		//log.Debug("sendRequest | Adding header: {", key, "|", value, "}")
 	}
 
-	// If data are present and content lenght was not specified (only for POST)
+	// If content lenght was not specified (only for POST)
 	if req.Method == "POST" && !contentlengthPresent {
-		contentlength := len(bodyData)
+		contentlength := strconv.FormatInt(req.Req.ContentLength, 10)
 		log.Debug("sendRequest | Content-length not provided, setting new one -> ", contentlength)
-		req.Req.Header.Add("Content-Length", strconv.Itoa(contentlength))
+		req.Req.Header.Add("Content-Length", contentlength)
 	}
 
 	return &req, err
@@ -261,6 +289,7 @@ func (req *Request) ExecuteRequest() datastructure.Response {
 
 	log.Debug("sendRequest | Executing request ...")
 	client := &http.Client{Transport: req.Tr, Timeout: req.Timeout}
+	log.Debug(fmt.Printf("%+v\n", req))
 	resp, err := client.Do(req.Req)
 
 	if err != nil {
@@ -369,12 +398,15 @@ func (req *Request) SendRequest(url, method string, bodyData []byte, skipTLS boo
 	}
 
 	if req.Method == "POST" && !contentlengthPresent {
-		contentlength := len(bodyData)
+		contentlength := strconv.FormatInt(req.Req.ContentLength, 10)
 		log.Debug("sendRequest | Content-length not provided, setting new one -> ", contentlength)
-		req.Req.Header.Add("Content-Length", strconv.Itoa(contentlength))
+		req.Req.Header.Add("Content-Length", contentlength)
 	}
+
 	log.Debug("sendRequest | Executing request ...")
 	client := &http.Client{Transport: req.Tr, Timeout: req.Timeout}
+	log.Debug(fmt.Printf("%+v\n", req))
+
 	resp, err := client.Do(req.Req)
 
 	if err != nil {
