@@ -4,7 +4,6 @@ import (
 	"bytes"
 	"crypto/tls"
 	"errors"
-	"fmt"
 	"io/ioutil"
 	"net/http"
 	"strconv"
@@ -21,11 +20,12 @@ import (
 // AllowedMethod rappresent the HTTP method allowed in the request
 var allowedMethod []string = []string{"GET", "POST", "HEAD", "PUT", "DELETE", "OPTIONS"}
 
+// Request will contains all the data related to the current HTTP request and response.
 type Request struct {
 	Req     *http.Request          // Request
 	Tr      *http.Transport        // Transport layer, used for enable/disable TLS verification
 	Method  string                 // HTTP method of the request
-	Url     string                 // URL where send the request
+	URL     string                 // URL where send the request
 	Data    []byte                 // BODY in case of POST, ARGS in case of GET
 	Headers [][]string             // List of headers to send in the request
 	Resp    datastructure.Response // Struct for save the response
@@ -42,7 +42,6 @@ func InitDebugRequest() Request {
 	log.SetFormatter(Formatter)
 	log.SetLevel(log.DebugLevel)
 	return Request{}
-
 }
 
 // methodIsAllowed is delegated to verify if the given HTTP Method is compliant
@@ -56,11 +55,11 @@ func (req *Request) methodIsAllowed(method string) bool {
 	return false
 }
 
-// SetTimeout is delegated to set a timeout different from the default one.
+// SetTimeoutString is delegated to set a timeout different from the default one.
 // It take the unit of the time, and an integer related to the time to wait
 // Ex: MS, 100 (100 milliseconds)
 // NOTE: The default timeout (0) means no timeout waiting -> infinite timeout
-func (req *Request) SetTimeout(unit string, value int) {
+func (req *Request) SetTimeoutString(unit string, value int) {
 	var t time.Duration
 	if value == 0 {
 		log.Warning("WARNING! Setting a timeout of 0 means inifite timeout!!")
@@ -94,6 +93,19 @@ func (req *Request) SetTimeout(unit string, value int) {
 
 	log.Info("Setting a timeout of [", value, "] "+unit)
 	req.Timeout = t
+}
+
+// SetTimeout is delegated to validate the given timeout and set to the request
+func (req *Request) SetTimeout(t time.Duration) {
+
+	value := t.Milliseconds()
+	if value == 0 {
+		log.Warning("WARNING! Setting a timeout of 0 means inifite timeout!!")
+	} else if value < 0 {
+		value = -value
+		log.Warning("WARNING! Get a negative timeout, using absolute value")
+	}
+	req.Timeout = time.Duration(value)
 }
 
 // CreateHeaderList is delegated to initialize a list of headers.
@@ -140,16 +152,16 @@ func (req *Request) initGetRequest() {
 	if strings.ToUpper(req.Method) == "GET" && req.Data != nil {
 		args := string(req.Data)
 		// Arguments are not in the URL, concatenate the args in the URL
-		if !strings.Contains(req.Url, "?") {
+		if !strings.Contains(req.URL, "?") {
 			// Overwrite the "/" with the provided params
-			if strings.HasSuffix(req.Url, "/") {
-				index := strings.LastIndex(req.Url, "/")
-				req.Url = req.Url[:index]
+			if strings.HasSuffix(req.URL, "/") {
+				index := strings.LastIndex(req.URL, "/")
+				req.URL = req.URL[:index]
 			}
-			req.Url += "?" + args
+			req.URL += "?" + args
 		} else {
 			// adding additional parameter to the one provided in the URL
-			req.Url += "&" + args
+			req.URL += "&" + args
 		}
 	}
 }
@@ -159,10 +171,9 @@ func GetUlimitValue() (uint64, uint64) {
 	var rLimit syscall.Rlimit
 	err := syscall.Getrlimit(syscall.RLIMIT_NOFILE, &rLimit)
 	if err != nil {
-		fmt.Println("Error Getting Rlimit ", err)
+		log.Error("Error Getting Rlimit: ", err)
 	}
-	fmt.Println(rLimit)
-
+	log.Debug("Current Ulimit: ", rLimit.Cur)
 	return rLimit.Cur, rLimit.Max
 }
 
@@ -227,24 +238,24 @@ func InitRequest(url, method string, bodyData []byte, headers []string, skipTLS 
 	// Manage TLS configuration
 	req.SetTLS(skipTLS)
 	// Set infinite timeout as default http/net
-	req.SetTimeout("--", 0)
+	req.SetTimeoutString("--", 0)
 	// Create headers list
 	req.CreateHeaderList(headers...)
 
-	req.Url = url
+	req.URL = url
 	req.Data = bodyData
 
 	switch req.Method {
 	case "GET":
 		req.initGetRequest()
-		req.Req, err = http.NewRequest(req.Method, req.Url, nil)
+		req.Req, err = http.NewRequest(req.Method, req.URL, nil)
 	case "POST":
 		req.initPostRequest()
-		req.Req, err = http.NewRequest(req.Method, req.Url, bytes.NewReader(req.Data))
+		req.Req, err = http.NewRequest(req.Method, req.URL, bytes.NewReader(req.Data))
 	case "PUT":
-		req.Req, err = http.NewRequest(req.Method, req.Url, nil)
+		req.Req, err = http.NewRequest(req.Method, req.URL, nil)
 	case "DELETE":
-		req.Req, err = http.NewRequest(req.Method, req.Url, nil)
+		req.Req, err = http.NewRequest(req.Method, req.URL, nil)
 	default:
 		log.Debug("sendRequest | Unknown method -> " + method)
 		err = errors.New("HTTP_METHOD_NOT_MANAGED")
@@ -287,9 +298,9 @@ func (req *Request) ExecuteRequest() datastructure.Response {
 	var start time.Time = time.Now()
 	var err error
 
-	log.Debug("sendRequest | Executing request ...")
+	log.Debug("ExecuteRequest | Executing request ...")
 	client := &http.Client{Transport: req.Tr, Timeout: req.Timeout}
-	log.Debug(fmt.Printf("%+v\n", req))
+	log.Debugf("Request: %+v\n", req.Req)
 	resp, err := client.Do(req.Req)
 
 	if err != nil {
@@ -318,7 +329,7 @@ func (req *Request) ExecuteRequest() datastructure.Response {
 	response.Error = nil
 	elapsed := time.Since(start)
 	response.Time = elapsed
-	log.Debug("sendRequest | Elapsed -> ", elapsed, " | STOP!")
+	log.Debug("ExecuteRequest | Elapsed -> ", elapsed, " | STOP!")
 	return response
 }
 
@@ -354,22 +365,22 @@ func (req *Request) SendRequest(url, method string, bodyData []byte, skipTLS boo
 	// Manage TLS configuration
 	req.SetTLS(skipTLS)
 	// Set infinite timeout as default http/net
-	req.SetTimeout("--", 0)
+	req.SetTimeoutString("--", 0)
 
-	req.Url = url
+	req.URL = url
 	req.Data = bodyData
 
 	switch req.Method {
 	case "GET":
 		req.initGetRequest()
-		req.Req, err = http.NewRequest(req.Method, req.Url, nil)
+		req.Req, err = http.NewRequest(req.Method, req.URL, nil)
 	case "POST":
 		req.initPostRequest()
-		req.Req, err = http.NewRequest(req.Method, req.Url, bytes.NewReader(req.Data))
+		req.Req, err = http.NewRequest(req.Method, req.URL, bytes.NewReader(req.Data))
 	case "PUT":
-		req.Req, err = http.NewRequest(req.Method, req.Url, nil)
+		req.Req, err = http.NewRequest(req.Method, req.URL, nil)
 	case "DELETE":
-		req.Req, err = http.NewRequest(req.Method, req.Url, nil)
+		req.Req, err = http.NewRequest(req.Method, req.URL, nil)
 	default:
 		log.Debug("sendRequest | Unknown method -> " + method)
 		err = errors.New("HTTP_METHOD_NOT_MANAGED")
@@ -405,7 +416,7 @@ func (req *Request) SendRequest(url, method string, bodyData []byte, skipTLS boo
 
 	log.Debug("sendRequest | Executing request ...")
 	client := &http.Client{Transport: req.Tr, Timeout: req.Timeout}
-	log.Debug(fmt.Printf("%+v\n", req))
+	log.Debugf("sendRequest | Request: %+v\n", req.Req)
 
 	resp, err := client.Do(req.Req)
 

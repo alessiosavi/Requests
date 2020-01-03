@@ -12,7 +12,8 @@ import (
 	"github.com/alessiosavi/Requests/datastructure"
 )
 
-var req Request // = InitDebugRequest()
+// Remove comment for set the log at debug level
+var req Request = InitDebugRequest()
 
 func TestCreateHeaderList(t *testing.T) {
 	// Create a simple headers
@@ -274,12 +275,12 @@ func TestRequest_Timeout(t *testing.T) {
 
 	for _, c := range cases {
 		var req Request // = InitDebugRequest()
-		req.SetTimeout("S", c.time)
+		req.SetTimeoutString("S", c.time)
 		start := time.Now()
 		resp := req.SendRequest(c.host, c.method, c.body, c.skipTLS)
 		elapsed := time.Since(start)
 		if resp.Error != nil {
-			t.Errorf("Received an error -> %v [test n. %d]", resp.Error, c.number)
+			t.Errorf("Received an error -> %v [test n. %d]. Be sure that the python server on ./example folder is up and running", resp.Error, c.number)
 		}
 		if time.Duration(c.time)*time.Second < elapsed {
 			t.Error("Error timeout")
