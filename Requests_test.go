@@ -275,7 +275,7 @@ func TestRequest_Timeout(t *testing.T) {
 
 	for _, c := range cases {
 		var req Request // = InitDebugRequest()
-		req.SetTimeoutString("S", c.time)
+		req.SetTimeout(time.Second * time.Duration(c.time))
 		start := time.Now()
 		resp := req.SendRequest(c.host, c.method, c.body, c.skipTLS)
 		elapsed := time.Since(start)

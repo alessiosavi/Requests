@@ -55,46 +55,6 @@ func (req *Request) methodIsAllowed(method string) bool {
 	return false
 }
 
-// SetTimeoutString is delegated to set a timeout different from the default one.
-// It take the unit of the time, and an integer related to the time to wait
-// Ex: MS, 100 (100 milliseconds)
-// NOTE: The default timeout (0) means no timeout waiting -> infinite timeout
-func (req *Request) SetTimeoutString(unit string, value int) {
-	var t time.Duration
-	if value == 0 {
-		log.Warning("WARNING! Setting a timeout of 0 means inifite timeout!!")
-		req.Timeout = 0
-		return
-	} else if value < 0 {
-		// Don't allow value < 0
-		value = -value
-	}
-
-	mul := time.Duration(value)
-
-	switch strings.ToUpper(unit) {
-	case "NS":
-		// Nanoseconds
-		t = time.Nanosecond * mul
-	case "MS":
-		// Milliseconds
-		t = time.Millisecond * mul
-	case "S":
-		// Seconds
-		t = time.Second * mul
-	case "M":
-		// Minutes
-		t = time.Minute * mul
-	default:
-		log.Warning("WARNING! [" + unit + "] is not a valid unit! Falling back to milliseconds!")
-		unit = "MS"
-		t = time.Millisecond * mul
-	}
-
-	log.Info("Setting a timeout of [", value, "] "+unit)
-	req.Timeout = t
-}
-
 // SetTimeout is delegated to validate the given timeout and set to the request
 func (req *Request) SetTimeout(t time.Duration) {
 
