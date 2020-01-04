@@ -238,7 +238,7 @@ func InitRequest(url, method string, bodyData []byte, headers []string, skipTLS 
 	// Manage TLS configuration
 	req.SetTLS(skipTLS)
 	// Set infinite timeout as default http/net
-	req.SetTimeoutString("--", 0)
+	req.SetTimeout(time.Duration(0))
 	// Create headers list
 	req.CreateHeaderList(headers...)
 
@@ -365,7 +365,7 @@ func (req *Request) SendRequest(url, method string, bodyData []byte, skipTLS boo
 	// Manage TLS configuration
 	req.SetTLS(skipTLS)
 	// Set infinite timeout as default http/net
-	req.SetTimeoutString("--", 0)
+	req.SetTimeout(time.Duration(0))
 
 	req.URL = url
 	req.Data = bodyData
