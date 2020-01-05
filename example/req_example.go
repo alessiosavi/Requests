@@ -84,13 +84,13 @@ func exampleParallelRequest() {
 	// This array will contains the response from the given request
 	var response []datastructure.Response
 
-	// Set to run at max 12 request in parallele
-	var N int = 12
+	// Set to run at max 4 request in parallel (use CPU count for best effort)
+	var N int = 4
 	// Create the list of request
 	for i := 0; i < 1000; i++ {
 		// Run against the `server_example.py` present in this folder
 		req, err := requests.InitRequest("https://127.0.0.1:5000", "GET", nil, nil, i%2 == 0, false) // Alternate cert validation
-		req.SetTimeout(40 * time.Millisecond)
+		req.SetTimeout(50 * time.Millisecond)
 		if err != nil {
 			log.Println("Skipping request [", i, "]. Error: ", err)
 		} else {
