@@ -68,6 +68,13 @@ func (req *Request) SetTimeout(t time.Duration) {
 	req.Timeout = t
 }
 
+// AddCookie is delegated to add the given list of cookie to the request
+func (req *Request) AddCookie(c ...*http.Cookie) {
+	for i := range c {
+		req.Req.AddCookie(c[i])
+	}
+}
+
 // CreateHeaderList is delegated to initialize a list of headers.
 // Every row of the matrix contains [key,value]
 func (req *Request) CreateHeaderList(headers ...string) bool {
@@ -274,7 +281,7 @@ func (req *Request) ExecuteRequest() datastructure.Response {
 		response.Error = err
 		return response
 	}
-	defer resp.Body.Close()
+
 	//log.Debug("sendRequest | Request executed, reading response ...")
 	bodyResp, err := ioutil.ReadAll(resp.Body)
 	if err != nil {
@@ -282,6 +289,9 @@ func (req *Request) ExecuteRequest() datastructure.Response {
 		err = errors.New("ERROR_READING_RESPONSE -> " + err.Error())
 		response.Error = err
 		return response
+	}
+	if err = resp.Body.Close(); err != nil {
+		log.Warning("Unable to close the response body: " + err.Error())
 	}
 	var headersResp []string
 	for k, v := range resp.Header {
