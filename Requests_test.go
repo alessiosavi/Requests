@@ -200,7 +200,7 @@ func TestRequest_InitRequest(t *testing.T) {
 	}
 
 	for _, c := range cases {
-		_, err := InitRequest(c.host, c.method, c.body, nil, c.skipTLS)
+		_, err := InitRequest(c.host, c.method, c.body, nil, c.skipTLS, false)
 		if c.expected != err {
 			if c.expected.Error() != err.Error() {
 				t.Errorf("Expected %v, received %v [test n. %d]", c.expected, err.Error(), c.number)
@@ -238,7 +238,7 @@ func TestRequest_ExecuteRequest(t *testing.T) {
 	}
 
 	for _, c := range cases {
-		req, err := InitRequest(c.host, c.method, c.body, nil, c.skipTLS)
+		req, err := InitRequest(c.host, c.method, c.body, nil, c.skipTLS, false)
 		if err == nil {
 			resp := req.ExecuteRequest()
 			if c.expected != resp.Error {

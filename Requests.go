@@ -65,7 +65,7 @@ func (req *Request) SetTimeout(t time.Duration) {
 		value = -value
 		log.Warning("WARNING! Get a negative timeout, using absolute value")
 	}
-	req.Timeout = time.Duration(value)
+	req.Timeout = t
 }
 
 // CreateHeaderList is delegated to initialize a list of headers.
@@ -166,19 +166,23 @@ func ParallelRequest(reqs []Request, N int) []datastructure.Response {
 func (req *Request) SetTLS(skipTLS bool) {
 	if skipTLS {
 		// Accept not trusted SSL Certificates
-		req.Tr = &http.Transport{TLSClientConfig: &tls.Config{InsecureSkipVerify: true}}
+		req.Tr = &http.Transport{TLSClientConfig: &tls.Config{InsecureSkipVerify: true}, DisableKeepAlives: true}
 		log.Debug("TLS certificate validation disabled")
 	} else {
-		req.Tr = &http.Transport{TLSClientConfig: &tls.Config{InsecureSkipVerify: false}}
+		req.Tr = &http.Transport{TLSClientConfig: &tls.Config{InsecureSkipVerify: false}, DisableKeepAlives: true}
 		log.Debug("TLS certificate validation enabled")
 	}
 }
 
 // InitRequest is delegated to initialize a new request with the given parameter.
 // NOTE: it will use the default timeout -> NO TIMEOUT. In order to specify a different timeout you can use the delegated method
-func InitRequest(url, method string, bodyData []byte, headers []string, skipTLS bool) (*Request, error) {
+func InitRequest(url, method string, bodyData []byte, headers []string, skipTLS bool, debug bool) (*Request, error) {
 	var err error
 	var req Request
+
+	if debug {
+		req = InitDebugRequest()
+	}
 
 	if !strings.HasPrefix(url, "http://") && !strings.HasPrefix(url, "https://") {
 		err = errors.New("PREFIX_URL_NOT_VALID")
@@ -242,7 +246,7 @@ func InitRequest(url, method string, bodyData []byte, headers []string, skipTLS 
 		//log.Debug("sendRequest | Adding header: {", key, "|", value, "}")
 	}
 
-	// If content lenght was not specified (only for POST)
+	// If content lenght was not specified (only for POST) add an headers with the lenght of the request
 	if req.Method == "POST" && !contentlengthPresent {
 		contentlength := strconv.FormatInt(req.Req.ContentLength, 10)
 		log.Debug("sendRequest | Content-length not provided, setting new one -> ", contentlength)
@@ -261,6 +265,7 @@ func (req *Request) ExecuteRequest() datastructure.Response {
 	log.Debug("ExecuteRequest | Executing request ...")
 	client := &http.Client{Transport: req.Tr, Timeout: req.Timeout}
 	log.Debugf("Request: %+v\n", req.Req)
+	log.Debugf("Client: %+v\n", client)
 	resp, err := client.Do(req.Req)
 
 	if err != nil {

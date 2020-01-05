@@ -3,6 +3,7 @@ package main
 import (
 	"fmt"
 	"log"
+	"time"
 
 	requests "github.com/alessiosavi/Requests"
 	"github.com/alessiosavi/Requests/datastructure"
@@ -88,8 +89,8 @@ func exampleParallelRequest() {
 	// Create the list of request
 	for i := 0; i < 1000; i++ {
 		// Run against the `server_example.py` present in this folder
-		req, err := requests.InitRequest("https://127.0.0.1:5000", "GET", nil, nil, i%2 == 0) // Alternate cert validation
-		req.SetTimeout("ms", 1)
+		req, err := requests.InitRequest("https://127.0.0.1:5000", "GET", nil, nil, i%2 == 0, false) // Alternate cert validation
+		req.SetTimeout(40 * time.Millisecond)
 		if err != nil {
 			log.Println("Skipping request [", i, "]. Error: ", err)
 		} else {
