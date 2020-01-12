@@ -21,7 +21,7 @@ jobs:
     - name: Get dependencies
       run: |
         go clean
-        apt install -y python3
+        sudo apt install -y python3
         python3 -m pip install Flask
 
     - name: Build
