@@ -17,8 +17,8 @@ import (
 	log "github.com/sirupsen/logrus"
 )
 
-// AllowedMethod rappresent the HTTP method allowed in the request
-var allowedMethod []string = []string{"GET", "POST", "HEAD", "PUT", "DELETE", "OPTIONS"}
+// AllowedMethod represent the HTTP method allowed in the request
+var allowedMethod = []string{"GET", "POST", "HEAD", "PUT", "DELETE", "OPTIONS"}
 
 // Request will contains all the data related to the current HTTP request and response.
 type Request struct {
@@ -60,7 +60,7 @@ func (req *Request) SetTimeout(t time.Duration) {
 
 	value := t.Milliseconds()
 	if value == 0 {
-		log.Warning("WARNING! Setting a timeout of 0 means inifite timeout!!")
+		log.Warning("WARNING! Setting a timeout of 0 means infinite timeout!!")
 	} else if value < 0 {
 		value = -value
 		log.Warning("WARNING! Get a negative timeout, using absolute value")
@@ -147,7 +147,7 @@ func GetUlimitValue() (uint64, uint64) {
 // ParallelRequest is delegated to run the given list of request in parallel, sending N request at each time
 func ParallelRequest(reqs []Request, N int) []datastructure.Response {
 	var wg sync.WaitGroup
-	var results []datastructure.Response = make([]datastructure.Response, len(reqs))
+	var results = make([]datastructure.Response, len(reqs))
 
 	ulimitCurr, _ := GetUlimitValue()
 	if uint64(N) > ulimitCurr {
@@ -253,7 +253,7 @@ func InitRequest(url, method string, bodyData []byte, headers []string, skipTLS 
 		//log.Debug("sendRequest | Adding header: {", key, "|", value, "}")
 	}
 
-	// If content lenght was not specified (only for POST) add an headers with the lenght of the request
+	// If content length was not specified (only for POST) add an headers with the lenght of the request
 	if req.Method == "POST" && !contentlengthPresent {
 		contentlength := strconv.FormatInt(req.Req.ContentLength, 10)
 		log.Debug("sendRequest | Content-length not provided, setting new one -> ", contentlength)
@@ -266,7 +266,7 @@ func InitRequest(url, method string, bodyData []byte, headers []string, skipTLS 
 // ExecuteRequest is delegated to run a previously allocated request.
 func (req *Request) ExecuteRequest() datastructure.Response {
 	var response datastructure.Response
-	var start time.Time = time.Now()
+	var start = time.Now()
 	var err error
 
 	log.Debug("ExecuteRequest | Executing request ...")

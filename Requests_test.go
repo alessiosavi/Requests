@@ -13,7 +13,7 @@ import (
 )
 
 // Remove comment for set the log at debug level
-var req Request = InitDebugRequest()
+var req = InitDebugRequest()
 
 func TestCreateHeaderList(t *testing.T) {
 	// Create a simple headers
@@ -116,9 +116,9 @@ type headerTestCase struct {
 func TestRequest_CreateHeaderList(t *testing.T) {
 	var request Request
 	cases := []headerTestCase{
-		headerTestCase{input: []string{"Content-Type", "text/plain"}, expected: true, number: 1},
-		headerTestCase{input: []string{"Content-Type"}, expected: false, number: 2},
-		headerTestCase{input: []string{"Content-Type", "text/plain", "Error"}, expected: false, number: 3},
+		{input: []string{"Content-Type", "text/plain"}, expected: true, number: 1},
+		{input: []string{"Content-Type"}, expected: false, number: 2},
+		{input: []string{"Content-Type", "text/plain", "Error"}, expected: false, number: 3},
 	}
 	for _, c := range cases {
 		if c.expected != request.CreateHeaderList(c.input...) {
@@ -157,14 +157,14 @@ func TestRequest_SendRequest(t *testing.T) {
 	cases := []requestTestCase{
 
 		// GET
-		requestTestCase{host: "http://localhost:8081/", method: "GET", body: nil, skipTLS: false, expected: nil, number: 1},
-		requestTestCase{host: "http://localhost:8081/", method: "GET", body: nil, skipTLS: true, expected: nil, number: 2},
-		requestTestCase{host: "localhost:8081/", method: "GET", body: nil, skipTLS: false, expected: errors.New("PREFIX_URL_NOT_VALID"), number: 3},
+		{host: "http://localhost:8081/", method: "GET", body: nil, skipTLS: false, expected: nil, number: 1},
+		{host: "http://localhost:8081/", method: "GET", body: nil, skipTLS: true, expected: nil, number: 2},
+		{host: "localhost:8081/", method: "GET", body: nil, skipTLS: false, expected: errors.New("PREFIX_URL_NOT_VALID"), number: 3},
 		// POST
-		requestTestCase{host: "localhost:8081/", method: "POST", body: []byte{}, skipTLS: true, expected: errors.New("PREFIX_URL_NOT_VALID"), number: 4},
-		requestTestCase{host: "localhost:8081/", method: "POST", body: nil, skipTLS: true, expected: errors.New("PREFIX_URL_NOT_VALID"), number: 5},
-		requestTestCase{host: "http://localhost:8081/", method: "HEAD", body: nil, skipTLS: false, expected: errors.New("HTTP_METHOD_NOT_MANAGED"), number: 6},
-		requestTestCase{host: "http://localhost:8080/", method: "GET", body: nil, skipTLS: false, expected: errors.New("ERROR_SENDING_REQUEST"), number: 7},
+		{host: "localhost:8081/", method: "POST", body: []byte{}, skipTLS: true, expected: errors.New("PREFIX_URL_NOT_VALID"), number: 4},
+		{host: "localhost:8081/", method: "POST", body: nil, skipTLS: true, expected: errors.New("PREFIX_URL_NOT_VALID"), number: 5},
+		{host: "http://localhost:8081/", method: "HEAD", body: nil, skipTLS: false, expected: errors.New("HTTP_METHOD_NOT_MANAGED"), number: 6},
+		{host: "http://localhost:8080/", method: "GET", body: nil, skipTLS: false, expected: errors.New("ERROR_SENDING_REQUEST"), number: 7},
 	}
 
 	for _, c := range cases {
@@ -190,13 +190,13 @@ func TestRequest_InitRequest(t *testing.T) {
 	cases := []requestTestCase{
 
 		// GET
-		requestTestCase{host: "http://localhost:8081/", method: "GET", body: nil, skipTLS: false, expected: nil, number: 1},
-		requestTestCase{host: "http://localhost:8081/", method: "GET", body: nil, skipTLS: true, expected: nil, number: 2},
-		requestTestCase{host: "localhost:8081/", method: "GET", body: nil, skipTLS: false, expected: errors.New("PREFIX_URL_NOT_VALID"), number: 3},
+		{host: "http://localhost:8081/", method: "GET", body: nil, skipTLS: false, expected: nil, number: 1},
+		{host: "http://localhost:8081/", method: "GET", body: nil, skipTLS: true, expected: nil, number: 2},
+		{host: "localhost:8081/", method: "GET", body: nil, skipTLS: false, expected: errors.New("PREFIX_URL_NOT_VALID"), number: 3},
 		// POST
-		requestTestCase{host: "localhost:8081/", method: "POST", body: []byte{}, skipTLS: true, expected: errors.New("PREFIX_URL_NOT_VALID"), number: 4},
-		requestTestCase{host: "localhost:8081/", method: "POST", body: nil, skipTLS: true, expected: errors.New("PREFIX_URL_NOT_VALID"), number: 5},
-		requestTestCase{host: "http://localhost:8081/", method: "HEAD", body: nil, skipTLS: false, expected: errors.New("HTTP_METHOD_NOT_MANAGED"), number: 6},
+		{host: "localhost:8081/", method: "POST", body: []byte{}, skipTLS: true, expected: errors.New("PREFIX_URL_NOT_VALID"), number: 4},
+		{host: "localhost:8081/", method: "POST", body: nil, skipTLS: true, expected: errors.New("PREFIX_URL_NOT_VALID"), number: 5},
+		{host: "http://localhost:8081/", method: "HEAD", body: nil, skipTLS: false, expected: errors.New("HTTP_METHOD_NOT_MANAGED"), number: 6},
 	}
 
 	for _, c := range cases {
@@ -227,14 +227,14 @@ func TestRequest_ExecuteRequest(t *testing.T) {
 
 	cases := []requestTestCase{
 		// GET
-		requestTestCase{host: "http://localhost:8081/", method: "GET", body: nil, skipTLS: false, expected: nil, number: 1},
-		requestTestCase{host: "http://localhost:8081/", method: "GET", body: nil, skipTLS: true, expected: nil, number: 2},
-		requestTestCase{host: "localhost:8081/", method: "GET", body: nil, skipTLS: false, expected: errors.New("PREFIX_URL_NOT_VALID"), number: 3},
+		{host: "http://localhost:8081/", method: "GET", body: nil, skipTLS: false, expected: nil, number: 1},
+		{host: "http://localhost:8081/", method: "GET", body: nil, skipTLS: true, expected: nil, number: 2},
+		{host: "localhost:8081/", method: "GET", body: nil, skipTLS: false, expected: errors.New("PREFIX_URL_NOT_VALID"), number: 3},
 		// POST
-		requestTestCase{host: "localhost:8081/", method: "POST", body: []byte{}, skipTLS: true, expected: errors.New("PREFIX_URL_NOT_VALID"), number: 4},
-		requestTestCase{host: "localhost:8081/", method: "POST", body: nil, skipTLS: true, expected: errors.New("PREFIX_URL_NOT_VALID"), number: 5},
-		requestTestCase{host: "http://localhost:8081/", method: "HEAD", body: nil, skipTLS: false, expected: errors.New("HTTP_METHOD_NOT_MANAGED"), number: 6},
-		requestTestCase{host: "http://localhost:8080/", method: "GET", body: nil, skipTLS: false, expected: errors.New("ERROR_SENDING_REQUEST"), number: 7},
+		{host: "localhost:8081/", method: "POST", body: []byte{}, skipTLS: true, expected: errors.New("PREFIX_URL_NOT_VALID"), number: 4},
+		{host: "localhost:8081/", method: "POST", body: nil, skipTLS: true, expected: errors.New("PREFIX_URL_NOT_VALID"), number: 5},
+		{host: "http://localhost:8081/", method: "HEAD", body: nil, skipTLS: false, expected: errors.New("HTTP_METHOD_NOT_MANAGED"), number: 6},
+		{host: "http://localhost:8080/", method: "GET", body: nil, skipTLS: false, expected: errors.New("ERROR_SENDING_REQUEST"), number: 7},
 	}
 
 	for _, c := range cases {
@@ -270,7 +270,7 @@ func TestRequest_Timeout(t *testing.T) {
 	// Need to run the server present in example/server_example.py
 	cases := []timeoutTestCase{
 		// GET
-		timeoutTestCase{host: "https://localhost:5000/timeout", method: "GET", body: nil, skipTLS: true, time: 11, number: 1},
+		{host: "https://localhost:5000/timeout", method: "GET", body: nil, skipTLS: true, time: 11, number: 1},
 	}
 
 	for _, c := range cases {

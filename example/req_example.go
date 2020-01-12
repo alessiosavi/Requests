@@ -2,11 +2,10 @@ package main
 
 import (
 	"fmt"
-	"log"
-	"time"
-
 	requests "github.com/alessiosavi/Requests"
 	"github.com/alessiosavi/Requests/datastructure"
+	"log"
+	"time"
 )
 
 func main() {
@@ -39,7 +38,7 @@ func examplePOSTRequest() {
 
 	// Send the request and save to a properly structure
 	// POST, with BODY data and enabling SSL certificate validation (skipTLS: false)
-	// NOTE: You can skip self signed certificate validatation with skipTLS=True
+	// NOTE: You can skip self signed certificate validation with skipTLS=True
 	response := req.SendRequest("https://postman-echo.com/post", "POST", body, false)
 
 	// Use the response data
@@ -85,15 +84,15 @@ func exampleParallelRequest() {
 	var response []datastructure.Response
 
 	// Set to run at max 4 request in parallel (use CPU count for best effort)
-	var N int = 4
+	var N = 4
 	// Create the list of request
 	for i := 0; i < 1000; i++ {
 		// Run against the `server_example.py` present in this folder
 		req, err := requests.InitRequest("https://127.0.0.1:5000", "GET", nil, nil, i%2 == 0, false) // Alternate cert validation
-		req.SetTimeout(50 * time.Millisecond)
 		if err != nil {
 			log.Println("Skipping request [", i, "]. Error: ", err)
 		} else {
+			req.SetTimeout(50 * time.Millisecond)
 			reqs = append(reqs, *req)
 		}
 	}
