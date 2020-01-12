@@ -30,7 +30,7 @@ jobs:
     - name: Test
       run: |
         cd example
-        python server_example.py &
+        python3 server_example.py &
         sleep 2
         cd ../
         go test -v
