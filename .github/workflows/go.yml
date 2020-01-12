@@ -21,7 +21,6 @@ jobs:
     - name: Get dependencies
       run: |
         go clean
-        go mod dowload
 
     - name: Build
       run: go build -v .
