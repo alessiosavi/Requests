@@ -78,29 +78,34 @@ func exampleGETRequest() {
 }
 
 func exampleParallelRequest() {
+	start := time.Now()
 	// This array will contains the list of request
 	var reqs []requests.Request
 	// This array will contains the response from the given request
 	var response []datastructure.Response
 
-	// Set to run at max 4 request in parallel (use CPU count for best effort)
-	var N = 4
+	// Set to run at max 100 request in parallel (use CPU count for best effort)
+	var N = 100
 	// Create the list of request
-	for i := 0; i < 1000; i++ {
+	for i := 0; i < 20000; i++ {
 		// Run against the `server_example.py` present in this folder
 		req, err := requests.InitRequest("https://127.0.0.1:5000", "GET", nil, nil, i%2 == 0, false) // Alternate cert validation
 		if err != nil {
 			log.Println("Skipping request [", i, "]. Error: ", err)
 		} else {
-			req.SetTimeout(50 * time.Millisecond)
+			req.SetTimeout(100 * time.Millisecond)
 			reqs = append(reqs, *req)
 		}
 	}
 
 	// Run the request in parallel
 	response = requests.ParallelRequest(reqs, N)
+
+	elapsed := time.Since(start)
+
 	for i := range response {
 		// Print the response
 		log.Println("Request [", i, "] -> ", response[i].Dump())
 	}
+	log.Printf("Requests took %s", elapsed)
 }

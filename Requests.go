@@ -19,6 +19,8 @@ import (
 
 // AllowedMethod represent the HTTP method allowed in the request
 var allowedMethod = []string{"GET", "POST", "HEAD", "PUT", "DELETE", "OPTIONS"}
+var tlsTransport *http.Transport = &http.Transport{TLSClientConfig: &tls.Config{InsecureSkipVerify: false}, DisableKeepAlives: true}
+var transport *http.Transport = &http.Transport{TLSClientConfig: &tls.Config{InsecureSkipVerify: true}, DisableKeepAlives: true}
 
 // Request will contains all the data related to the current HTTP request and response.
 type Request struct {
@@ -60,7 +62,7 @@ func (req *Request) SetTimeout(t time.Duration) {
 
 	value := t.Milliseconds()
 	if value == 0 {
-		log.Warning("WARNING! Setting a timeout of 0 means infinite timeout!!")
+		log.Debug("WARNING! Setting a timeout of 0 means infinite timeout!!")
 	} else if value < 0 {
 		value = -value
 		log.Warning("WARNING! Get a negative timeout, using absolute value")
@@ -150,8 +152,8 @@ func ParallelRequest(reqs []Request, N int) []datastructure.Response {
 	var results = make([]datastructure.Response, len(reqs))
 
 	ulimitCurr, _ := GetUlimitValue()
-	if uint64(N) > ulimitCurr {
-		N = int(ulimitCurr)
+	if uint64(N) >= ulimitCurr {
+		N = int(float64(ulimitCurr) * 0.7)
 		log.Warning("Provided a thread factor greater than current ulimit size, setting at MAX [", N, "] requests")
 	}
 
@@ -160,9 +162,9 @@ func ParallelRequest(reqs []Request, N int) []datastructure.Response {
 	for i := 0; i < len(reqs); i++ {
 		go func(i int) {
 			semaphore <- struct{}{}
-			defer func() { <-semaphore }()
-			defer wg.Done()
 			results[i] = reqs[i].ExecuteRequest()
+			wg.Done()
+			func() { <-semaphore }()
 		}(i)
 	}
 	wg.Wait()
@@ -173,10 +175,10 @@ func ParallelRequest(reqs []Request, N int) []datastructure.Response {
 func (req *Request) SetTLS(skipTLS bool) {
 	if skipTLS {
 		// Accept not trusted SSL Certificates
-		req.Tr = &http.Transport{TLSClientConfig: &tls.Config{InsecureSkipVerify: true}, DisableKeepAlives: true}
+		req.Tr = transport
 		log.Debug("TLS certificate validation disabled")
 	} else {
-		req.Tr = &http.Transport{TLSClientConfig: &tls.Config{InsecureSkipVerify: false}, DisableKeepAlives: true}
+		req.Tr = tlsTransport
 		log.Debug("TLS certificate validation enabled")
 	}
 }
@@ -282,6 +284,7 @@ func (req *Request) ExecuteRequest() datastructure.Response {
 		return response
 	}
 
+	defer resp.Body.Close()
 	//log.Debug("sendRequest | Request executed, reading response ...")
 	bodyResp, err := ioutil.ReadAll(resp.Body)
 	if err != nil {

@@ -2,18 +2,17 @@ package requests
 
 import (
 	"errors"
+	"github.com/alessiosavi/Requests/datastructure"
 	"log"
 	"net"
 	"net/http/httptest"
 	"strings"
 	"testing"
 	"time"
-
-	"github.com/alessiosavi/Requests/datastructure"
 )
 
 // Remove comment for set the log at debug level
-var req = InitDebugRequest()
+var req Request = InitDebugRequest()
 
 func TestCreateHeaderList(t *testing.T) {
 	// Create a simple headers
@@ -72,28 +71,28 @@ func TestSendRequest(t *testing.T) {
 func BenchmarkRequestGETWithoutTLS(t *testing.B) {
 	var r Request
 	for i := 0; i < t.N; i++ {
-		r.SendRequest("http://127.0.0.1:8080", "GET", nil, false)
+		r.SendRequest("http://127.0.0.1:9999", "GET", nil, false)
 	}
 }
 
 func BenchmarkRequestGETWithTLS(t *testing.B) {
 	var r Request
 	for i := 0; i < t.N; i++ {
-		r.SendRequest("http://127.0.0.1:8080", "GET", nil, true)
+		r.SendRequest("http://127.0.0.1:9999", "GET", nil, true)
 	}
 }
 
 func BenchmarkRequestPOSTWithoutTLS(t *testing.B) {
 	var r Request
 	for i := 0; i < t.N; i++ {
-		r.SendRequest("http://127.0.0.1:8080", "POST", []byte{}, false)
+		r.SendRequest("http://127.0.0.1:9999", "POST", []byte{}, false)
 	}
 }
 
 func BenchmarkRequestPOSTWithTLS(t *testing.B) {
 	var r Request
 	for i := 0; i < t.N; i++ {
-		r.SendRequest("http://127.0.0.1:8080", "POST", []byte{}, true)
+		r.SendRequest("http://127.0.0.1:9999", "POST", []byte{}, true)
 	}
 }
 
@@ -148,7 +147,7 @@ func TestRequest_SendRequest(t *testing.T) {
 	ts := httptest.NewUnstartedServer(nil)
 	// NewUnstartedServer creates a listener. Close that listener and replace
 	// with the one we created.
-	ts.Listener.Close()
+	_ = ts.Listener.Close()
 	ts.Listener = l
 
 	// Start the server.
@@ -170,13 +169,12 @@ func TestRequest_SendRequest(t *testing.T) {
 	for _, c := range cases {
 		resp := request.SendRequest(c.host, c.method, c.body, c.skipTLS)
 		if c.expected != resp.Error {
-			if c.expected == nil && resp.Error != nil {
+			if c.expected != nil && resp.Error != nil {
+				if !strings.Contains(resp.Error.Error(), c.expected.Error()) {
+					t.Errorf("Expected %v, received %v [test n. %d]", c.expected, resp.Error, c.number)
+				}
+			} else {
 				t.Error("Url not reachable! Spawn a simple server (python3 -m http.server 8081 || python -m SimpleHTTPServer 8081)")
-				continue
-			}
-
-			if !strings.Contains(resp.Error.Error(), c.expected.Error()) {
-				t.Errorf("Expected %v, received %v [test n. %d]", c.expected, resp.Error, c.number)
 			}
 		}
 	}
@@ -185,7 +183,8 @@ func TestRequest_SendRequest(t *testing.T) {
 	ts.Close()
 }
 
-func TestRequest_InitRequest(t *testing.T) {
+func
+TestRequest_InitRequest(t *testing.T) {
 
 	cases := []requestTestCase{
 
@@ -209,7 +208,8 @@ func TestRequest_InitRequest(t *testing.T) {
 	}
 }
 
-func TestRequest_ExecuteRequest(t *testing.T) {
+func
+TestRequest_ExecuteRequest(t *testing.T) {
 	// create a listener with the desired port.
 	l, err := net.Listen("tcp", "127.0.0.1:8081")
 	if err != nil {
@@ -241,12 +241,8 @@ func TestRequest_ExecuteRequest(t *testing.T) {
 		req, err := InitRequest(c.host, c.method, c.body, nil, c.skipTLS, false)
 		if err == nil {
 			resp := req.ExecuteRequest()
-			if c.expected != resp.Error {
-				if c.expected == nil && resp.Error != nil {
-					t.Error("Url not reachable! Spawn a simple server (python3 -m http.server 8081 || python -m SimpleHTTPServer 8081)")
-					continue
-				}
 
+			if c.expected != nil && resp.Error != nil {
 				if !strings.Contains(resp.Error.Error(), c.expected.Error()) {
 					t.Errorf("Expected %v, received %v [test n. %d]", c.expected, resp.Error, c.number)
 				}
@@ -280,7 +276,7 @@ func TestRequest_Timeout(t *testing.T) {
 		resp := req.SendRequest(c.host, c.method, c.body, c.skipTLS)
 		elapsed := time.Since(start)
 		if resp.Error != nil {
-			t.Errorf("Received an error -> %v [test n. %d]. Be sure that the python server on ./example folder is up and running", resp.Error, c.number)
+			t.Errorf("Received an error -> %v [test n. %d].\n Be sure that the python server on ./example folder is up and running", resp.Error, c.number)
 		}
 		if time.Duration(c.time)*time.Second < elapsed {
 			t.Error("Error timeout")
