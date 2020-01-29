@@ -4,10 +4,8 @@ package main
 import (
 	"flag"
 	"fmt"
-	"log"
-	"strconv"
-
 	"github.com/valyala/fasthttp"
+	"log"
 )
 
 var (
@@ -22,6 +20,7 @@ func main() {
 }
 
 func requestHandler(ctx *fasthttp.RequestCtx) {
-	counter = counter + 1
-	_, _ = fmt.Fprintf(ctx, "Counter: "+strconv.Itoa(counter))
+	//counter = counter + 1
+	//_, _ = fmt.Fprintf(ctx, "Counter: "+strconv.Itoa(counter))
+	fmt.Fprintf(ctx, "")
 }

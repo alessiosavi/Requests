@@ -5,6 +5,7 @@ import (
 	"github.com/alessiosavi/Requests/datastructure"
 	"log"
 	"net"
+	"net/http"
 	"net/http/httptest"
 	"strings"
 	"testing"
@@ -12,15 +13,16 @@ import (
 )
 
 // Remove comment for set the log at debug level
-var req Request = InitDebugRequest()
+var req Request // = InitDebugRequest()
 
 func TestCreateHeaderList(t *testing.T) {
 	// Create a simple headers
 	headersKey := `Content-Type`
 	headersValue := `application/json`
 
-	if !req.CreateHeaderList(headersKey, headersValue) {
-		t.Error("Unable to create headers list")
+	err := req.CreateHeaderList(headersKey, headersValue)
+	if err != nil {
+		t.Error("Unable to create headers list: " + err.Error())
 	}
 
 	if len(req.Headers) != 1 {
@@ -75,13 +77,6 @@ func BenchmarkRequestGETWithoutTLS(t *testing.B) {
 	}
 }
 
-func BenchmarkRequestGETWithTLS(t *testing.B) {
-	var r Request
-	for i := 0; i < t.N; i++ {
-		r.SendRequest("http://127.0.0.1:9999", "GET", nil, true)
-	}
-}
-
 func BenchmarkRequestPOSTWithoutTLS(t *testing.B) {
 	var r Request
 	for i := 0; i < t.N; i++ {
@@ -89,10 +84,35 @@ func BenchmarkRequestPOSTWithoutTLS(t *testing.B) {
 	}
 }
 
-func BenchmarkRequestPOSTWithTLS(t *testing.B) {
-	var r Request
+func BenchmarkParallelRequestGETWithoutTLS(t *testing.B) {
+	var n int = t.N
+	var requests []Request = make([]Request, n)
+	for i := 0; i < n; i++ {
+		req, err := InitRequest("http://127.0.0.1:9999", "GET", nil, nil, true, false)
+		if err == nil && req != nil {
+			requests[i] = *req
+		} else if err != nil {
+			t.Error("error: ", err)
+		}
+	}
 	for i := 0; i < t.N; i++ {
-		r.SendRequest("http://127.0.0.1:9999", "POST", []byte{}, true)
+		ParallelRequest(requests, 100)
+	}
+}
+
+func BenchmarkParallelRequestPOSTWithoutTLS(t *testing.B) {
+	var n int = t.N
+	var requests []Request = make([]Request, n)
+	for i := 0; i < n; i++ {
+		req, err := InitRequest("http://127.0.0.1:9999", "POST", []byte{}, nil, true, false)
+		if err == nil && req != nil {
+			requests[i] = *req
+		} else if err != nil {
+			t.Error("error: ", err)
+		}
+	}
+	for i := 0; i < t.N; i++ {
+		ParallelRequest(requests, 100)
 	}
 }
 
@@ -120,7 +140,8 @@ func TestRequest_CreateHeaderList(t *testing.T) {
 		{input: []string{"Content-Type", "text/plain", "Error"}, expected: false, number: 3},
 	}
 	for _, c := range cases {
-		if c.expected != request.CreateHeaderList(c.input...) {
+		err := request.CreateHeaderList(c.input...)
+		if (c.expected && err != nil) || (!c.expected && err == nil) {
 			t.Errorf("Expected %v for input %v [test n. %d]", c.expected, c.input, c.number)
 		}
 	}
@@ -237,10 +258,11 @@ TestRequest_ExecuteRequest(t *testing.T) {
 		{host: "http://localhost:8080/", method: "GET", body: nil, skipTLS: false, expected: errors.New("ERROR_SENDING_REQUEST"), number: 7},
 	}
 
+	client := &http.Client{}
 	for _, c := range cases {
 		req, err := InitRequest(c.host, c.method, c.body, nil, c.skipTLS, false)
 		if err == nil {
-			resp := req.ExecuteRequest()
+			resp := req.ExecuteRequest(client)
 
 			if c.expected != nil && resp.Error != nil {
 				if !strings.Contains(resp.Error.Error(), c.expected.Error()) {
@@ -262,6 +284,7 @@ type timeoutTestCase struct {
 	number  int
 }
 
+
 func TestRequest_Timeout(t *testing.T) {
 	// Need to run the server present in example/server_example.py
 	cases := []timeoutTestCase{
@@ -282,4 +305,38 @@ func TestRequest_Timeout(t *testing.T) {
 			t.Error("Error timeout")
 		}
 	}
+}
+
+func TestParallelRequest(t *testing.T) {
+	start := time.Now()
+	// This array will contains the list of request
+	var reqs []Request
+	// This array will contains the response from the given request
+	var response []datastructure.Response
+
+	// Set to run at max 100 request in parallel (use CPU count for best effort)
+	var N = 100
+	// Create the list of request
+	for i := 0; i < 1000; i++ {
+		// Run against the `server_example.py` present in this folder
+		req, err := InitRequest("https://127.0.0.1:5000", "GET", nil, nil, true, false) // Alternate cert validation
+		if err != nil {
+			t.Error("Error request [", i, "]. Error: ", err)
+		} else {
+			req.SetTimeout(1000 * time.Millisecond)
+			reqs = append(reqs, *req)
+		}
+	}
+
+	// Run the request in parallel
+	response = ParallelRequest(reqs, N)
+
+	elapsed := time.Since(start)
+
+	for i := range response {
+		if response[i].Error != nil {
+			t.Error("Error request [", i, "]. Error: ", response[i].Error)
+		}
+	}
+	log.Printf("Requests took %s", elapsed)
 }

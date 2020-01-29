@@ -79,17 +79,18 @@ func (req *Request) AddCookie(c ...*http.Cookie) {
 
 // CreateHeaderList is delegated to initialize a list of headers.
 // Every row of the matrix contains [key,value]
-func (req *Request) CreateHeaderList(headers ...string) bool {
+func (req *Request) CreateHeaderList(headers ...string) error {
 	if headers == nil {
 		req.Headers = [][]string{}
-		return false
+		return nil
 	}
 
 	length := len(headers)
 
 	if len(headers)%2 != 0 {
-		log.Debug(`Headers have to be a "key:value" list. Got instead a odd number of elements`)
-		return false
+		err := errors.New(`Headers have to be a "key:value" list. Got instead a odd number of elements`)
+		log.Debug(err)
+		return err
 	}
 
 	req.Headers = make([][]string, length/2)
@@ -106,7 +107,7 @@ func (req *Request) CreateHeaderList(headers ...string) bool {
 		counter++
 	}
 	log.Debug("createHeaderList | LIST: ", req.Headers)
-	return true
+	return nil
 }
 
 func (req *Request) initPostRequest() {
@@ -159,10 +160,11 @@ func ParallelRequest(reqs []Request, N int) []datastructure.Response {
 
 	semaphore := make(chan struct{}, N)
 	wg.Add(len(reqs))
+	client := &http.Client{}
 	for i := 0; i < len(reqs); i++ {
 		go func(i int) {
 			semaphore <- struct{}{}
-			results[i] = reqs[i].ExecuteRequest()
+			results[i] = reqs[i].ExecuteRequest(client)
 			wg.Done()
 			func() { <-semaphore }()
 		}(i)
@@ -213,7 +215,11 @@ func InitRequest(url, method string, bodyData []byte, headers []string, skipTLS 
 	// Set infinite timeout as default http/net
 	req.SetTimeout(time.Duration(0))
 	// Create headers list
-	req.CreateHeaderList(headers...)
+	err = req.CreateHeaderList(headers...)
+	if err != nil {
+		log.Warning("Unable to create headers ...", err)
+		return nil, err
+	}
 
 	req.URL = url
 	req.Data = bodyData
@@ -257,22 +263,25 @@ func InitRequest(url, method string, bodyData []byte, headers []string, skipTLS 
 
 	// If content length was not specified (only for POST) add an headers with the lenght of the request
 	if req.Method == "POST" && !contentlengthPresent {
-		contentlength := strconv.FormatInt(req.Req.ContentLength, 10)
-		log.Debug("sendRequest | Content-length not provided, setting new one -> ", contentlength)
-		req.Req.Header.Add("Content-Length", contentlength)
+		contentLength := strconv.FormatInt(req.Req.ContentLength, 10)
+		log.Debug("sendRequest | Content-length not provided, setting new one -> ", contentLength)
+		req.Req.Header.Add("Content-Length", contentLength)
 	}
 
 	return &req, err
 }
 
 // ExecuteRequest is delegated to run a previously allocated request.
-func (req *Request) ExecuteRequest() datastructure.Response {
+func (req *Request) ExecuteRequest(client *http.Client) datastructure.Response {
 	var response datastructure.Response
 	var start = time.Now()
 	var err error
 
 	log.Debug("ExecuteRequest | Executing request ...")
-	client := &http.Client{Transport: req.Tr, Timeout: req.Timeout}
+	//client := &http.Client{Transport: req.Tr, Timeout: req.Timeout}
+	req.Tr.DisableKeepAlives = false
+	client.Transport = req.Tr
+	client.Timeout = req.Timeout
 	log.Debugf("Request: %+v\n", req.Req)
 	log.Debugf("Client: %+v\n", client)
 	resp, err := client.Do(req.Req)
@@ -387,9 +396,9 @@ func (req *Request) SendRequest(url, method string, bodyData []byte, skipTLS boo
 	}
 
 	if req.Method == "POST" && !contentlengthPresent {
-		contentlength := strconv.FormatInt(req.Req.ContentLength, 10)
-		log.Debug("sendRequest | Content-length not provided, setting new one -> ", contentlength)
-		req.Req.Header.Add("Content-Length", contentlength)
+		contentLength := strconv.FormatInt(req.Req.ContentLength, 10)
+		log.Debug("sendRequest | Content-length not provided, setting new one -> ", contentLength)
+		req.Req.Header.Add("Content-Length", contentLength)
 	}
 
 	log.Debug("sendRequest | Executing request ...")

@@ -93,7 +93,7 @@ func exampleParallelRequest() {
 		if err != nil {
 			log.Println("Skipping request [", i, "]. Error: ", err)
 		} else {
-			req.SetTimeout(100 * time.Millisecond)
+			req.SetTimeout(10 * time.Second)
 			reqs = append(reqs, *req)
 		}
 	}
