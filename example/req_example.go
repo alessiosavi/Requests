@@ -5,6 +5,7 @@ import (
 	requests "github.com/alessiosavi/Requests"
 	"github.com/alessiosavi/Requests/datastructure"
 	"log"
+	"net/http"
 	"time"
 )
 
@@ -12,36 +13,38 @@ func main() {
 	exampleGETRequest()
 	examplePOSTRequest()
 	exampleParallelRequest()
+	exampleBasicAuth()
 }
 
 func examplePOSTRequest() {
 	// Initialize request
-	var req requests.Request
-
-	// For set the headers you can use two different method
-
-	// Method 1
+	var req *requests.Request
+	req, err := requests.InitRequest("https://postman-echo.com", "POST", []byte("get?foo1=bar1&foo2=bar2"), false, true)
+	if err != nil {
+		fmt.Println("Error: ", err)
+		return
+	}
 	//Set custom headers directly in the method
-	req.CreateHeaderList("Content-Type", "text/plain; charset=UTF-8", "Authorization", "Basic cG9zdG1hbjpwYXNzd29yZA==")
-
-	// Method 2
-	// Create a list of headers and use in the method
+	err = req.CreateHeaderList("Content-Type", "text/plain; charset=UTF-8", "Authorization", "Basic cG9zdG1hbjpwYXNzd29yZA==")
+	if err != nil {
+		fmt.Println("Error: ", err)
+		return
+	}
+	// Or create a list of headers and use in the method
 	var headers []string
 	headers = append(headers, "Content-Type")
 	headers = append(headers, "text/plain; charset=UTF-8")
 	headers = append(headers, "Authorization")
 	headers = append(headers, "Basic cG9zdG1hbjpwYXNzd29yZA==")
-	req.CreateHeaderList(headers...)
-
-	// Set the body of the request
-	body := []byte("This is the body data of the POST request")
-
+	err = req.CreateHeaderList(headers...)
+	if err != nil {
+		fmt.Println("Error: ", err)
+		return
+	}
 	// Send the request and save to a properly structure
-	// POST, with BODY data and enabling SSL certificate validation (skipTLS: false)
-	// NOTE: You can skip self signed certificate validation with skipTLS=True
-	response := req.SendRequest("https://postman-echo.com/post", "POST", body, false)
+	// GET, without BODY data (only used in POST), and enabling SSL certificate validation (skipTLS: false)
+	response := req.ExecuteRequest(&http.Client{})
 
-	// Use the response data
 	fmt.Println("Headers: ", response.Headers)
 	fmt.Println("Status code: ", response.StatusCode)
 	fmt.Println("Time elapsed: ", response.Time)
@@ -54,21 +57,32 @@ func examplePOSTRequest() {
 
 func exampleGETRequest() {
 	// Initialize request
-	var req requests.Request
-
+	var req *requests.Request
+	req, err := requests.InitRequest("https://postman-echo.com/get?foo1=bar1&foo2=bar2", "GET", nil, false, true)
+	if err != nil {
+		fmt.Println("Error: ", err)
+		return
+	}
 	//Set custom headers directly in the method
-	req.CreateHeaderList("Content-Type", "text/plain; charset=UTF-8", "Authorization", "Basic cG9zdG1hbjpwYXNzd29yZA==")
+	err = req.CreateHeaderList("Content-Type", "text/plain; charset=UTF-8", "Authorization", "alessio:savi")
+	if err != nil {
+		fmt.Println("Error: ", err)
+		return
+	}
 	// Or create a list of headers and use in the method
 	var headers []string
 	headers = append(headers, "Content-Type")
 	headers = append(headers, "text/plain; charset=UTF-8")
 	headers = append(headers, "Authorization")
-	headers = append(headers, "Basic cG9zdG1hbjpwYXNzd29yZA==")
-	req.CreateHeaderList(headers...)
-
+	headers = append(headers, "alessio:savi")
+	err = req.CreateHeaderList(headers...)
+	if err != nil {
+		fmt.Println("Error: ", err)
+		return
+	}
 	// Send the request and save to a properly structure
 	// GET, without BODY data (only used in POST), and enabling SSL certificate validation (skipTLS: false)
-	response := req.SendRequest("https://postman-echo.com/get?foo1=bar1&foo2=bar2", "GET", nil, false)
+	response := req.ExecuteRequest(&http.Client{})
 
 	fmt.Println("Headers: ", response.Headers)
 	fmt.Println("Status code: ", response.StatusCode)
@@ -89,7 +103,7 @@ func exampleParallelRequest() {
 	// Create the list of request
 	for i := 0; i < 20000; i++ {
 		// Run against the `server_example.py` present in this folder
-		req, err := requests.InitRequest("https://127.0.0.1:5000", "GET", nil, nil, i%2 == 0, false) // Alternate cert validation
+		req, err := requests.InitRequest("https://127.0.0.1:5000", "GET", nil, i%2 == 0, false) // Alternate cert validation
 		if err != nil {
 			log.Println("Skipping request [", i, "]. Error: ", err)
 		} else {
@@ -108,4 +122,15 @@ func exampleParallelRequest() {
 		log.Println("Request [", i, "] -> ", response[i].Dump())
 	}
 	log.Printf("Requests took %s", elapsed)
+}
+
+func exampleBasicAuth() {
+	req, err := requests.InitRequest("https://postman-echo.com/basic-auth", "GET", []byte{}, false, false)
+	if err != nil {
+		fmt.Println("ERROR! ", err)
+	}
+	req.CreateHeaderList("Accept", "application/json", "Accept-Language", "en_US", "Authorization", "postman:password")
+	client := &http.Client{}
+	resp := req.ExecuteRequest(client)
+	fmt.Println(resp.Dump())
 }

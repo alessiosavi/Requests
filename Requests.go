@@ -3,6 +3,7 @@ package requests
 import (
 	"bytes"
 	"crypto/tls"
+	"encoding/base64"
 	"errors"
 	"io/ioutil"
 	"net/http"
@@ -29,7 +30,6 @@ type Request struct {
 	Method  string                 // HTTP method of the request
 	URL     string                 // URL where send the request
 	Data    []byte                 // BODY in case of POST, ARGS in case of GET
-	Headers [][]string             // List of headers to send in the request
 	Resp    datastructure.Response // Struct for save the response
 	Timeout time.Duration          // Timeout of the request
 }
@@ -80,33 +80,40 @@ func (req *Request) AddCookie(c ...*http.Cookie) {
 // CreateHeaderList is delegated to initialize a list of headers.
 // Every row of the matrix contains [key,value]
 func (req *Request) CreateHeaderList(headers ...string) error {
+
 	if headers == nil {
-		req.Headers = [][]string{}
 		return nil
+	}
+	if req.Req == nil {
+		return errors.New("request is not initialized, please use the `InitRequest` method before apply the headers")
 	}
 
 	length := len(headers)
 
 	if len(headers)%2 != 0 {
-		err := errors.New(`Headers have to be a "key:value" list. Got instead a odd number of elements`)
+		err := errors.New(`headers have to be a "key:value" list, got instead a odd number of elements`)
 		log.Debug(err)
 		return err
 	}
 
-	req.Headers = make([][]string, length/2)
 	counter := 0
 
 	for i := 0; i < length; i += 2 {
-		tmp := make([]string, 2)
 		key := headers[i]
 		value := headers[i+1]
-		tmp[0] = key
-		tmp[1] = value
+		if strings.EqualFold(key, "Authorization") {
+			value = "Basic " + basicAuth(value)
+		}
 		log.Debug("createHeaderList | ", counter, ") Key: ", key, " Value: ", value)
-		req.Headers[counter] = tmp
 		counter++
+		if strings.EqualFold(`Authorization`, key) {
+			req.Req.Header.Set(key, value)
+		} else {
+			req.Req.Header.Add(key, value)
+		}
+		//log.Debug("sendRequest | Adding header: {", key, "|", value, "}")
 	}
-	log.Debug("createHeaderList | LIST: ", req.Headers)
+	log.Debug("createHeaderList | LIST: ", req.Req.Header)
 	return nil
 }
 
@@ -187,7 +194,8 @@ func (req *Request) SetTLS(skipTLS bool) {
 
 // InitRequest is delegated to initialize a new request with the given parameter.
 // NOTE: it will use the default timeout -> NO TIMEOUT. In order to specify a different timeout you can use the delegated method
-func InitRequest(url, method string, bodyData []byte, headers []string, skipTLS bool, debug bool) (*Request, error) {
+// NOTE: headers have to be set with the delegated method
+func InitRequest(url, method string, bodyData []byte, skipTLS bool, debug bool) (*Request, error) {
 	var err error
 	var req Request
 
@@ -214,12 +222,6 @@ func InitRequest(url, method string, bodyData []byte, headers []string, skipTLS 
 	req.SetTLS(skipTLS)
 	// Set infinite timeout as default http/net
 	req.SetTimeout(time.Duration(0))
-	// Create headers list
-	err = req.CreateHeaderList(headers...)
-	if err != nil {
-		log.Warning("Unable to create headers ...", err)
-		return nil, err
-	}
 
 	req.URL = url
 	req.Data = bodyData
@@ -245,27 +247,12 @@ func InitRequest(url, method string, bodyData []byte, headers []string, skipTLS 
 		return nil, err
 	}
 
-	contentlengthPresent := false
-	for i := range req.Headers {
-		// log.Debug("sendRequest | Adding header: ", headers[i], " Len: ", len(headers[i]))
-		key := req.Headers[i][0]
-		value := req.Headers[i][1]
-		if strings.EqualFold(`Authorization`, key) {
-			req.Req.Header.Add(key, value)
-		} else {
-			req.Req.Header.Set(key, value)
-		}
-		if strings.EqualFold("Content-Length", key) {
-			contentlengthPresent = true
-		}
-		//log.Debug("sendRequest | Adding header: {", key, "|", value, "}")
-	}
-
 	// If content length was not specified (only for POST) add an headers with the lenght of the request
-	if req.Method == "POST" && !contentlengthPresent {
+	if req.Method == "POST" {
 		contentLength := strconv.FormatInt(req.Req.ContentLength, 10)
-		log.Debug("sendRequest | Content-length not provided, setting new one -> ", contentLength)
-		req.Req.Header.Add("Content-Length", contentLength)
+		req.Req.Header.Set("Content-Length", contentLength)
+		log.Debug("sendRequest | Setting Content-Length -> ", contentLength)
+
 	}
 
 	return &req, err
@@ -380,19 +367,8 @@ func (req *Request) SendRequest(url, method string, bodyData []byte, skipTLS boo
 	}
 
 	contentlengthPresent := false
-	for i := range req.Headers {
-		log.Debug("sendRequest | Adding header: ", req.Headers[i], " Len: ", len(req.Headers[i]))
-		key := req.Headers[i][0]
-		value := req.Headers[i][1]
-		if strings.EqualFold(`Authorization`, key) {
-			req.Req.Header.Add(key, value)
-		} else {
-			req.Req.Header.Set(key, value)
-		}
-		if strings.EqualFold("Content-Length", key) {
-			contentlengthPresent = true
-		}
-		log.Debug("sendRequest | Adding header: {", key, "|", value, "}")
+	if strings.Compare(req.Req.Header.Get("Content-Length"), "") == 0 {
+		contentlengthPresent = true
 	}
 
 	if req.Method == "POST" && !contentlengthPresent {
@@ -442,4 +418,8 @@ func join(strs ...string) string {
 		sb.WriteString(str)
 	}
 	return sb.String()
+}
+
+func basicAuth(data string) string {
+	return base64.StdEncoding.EncodeToString([]byte(data))
 }

@@ -21,26 +21,23 @@ func TestCreateHeaderList(t *testing.T) {
 	headersValue := `application/json`
 
 	err := req.CreateHeaderList(headersKey, headersValue)
+	if err == nil {
+		t.Error("Error, request is not initialized!")
+	}
+
+	request, err := InitRequest("http://", "POST", nil, false, true)
 	if err != nil {
-		t.Error("Unable to create headers list: " + err.Error())
+		t.Error("Error!: ", err)
 	}
 
-	if len(req.Headers) != 1 {
-		t.Error("size error!")
+	err = request.CreateHeaderList(headersKey, headersValue)
+	if err != nil {
+		t.Error("Error!", err)
 	}
-
-	if len(req.Headers[0]) != 2 {
-		t.Error("key value headers size mismatch")
-	}
-
-	headersKeyTest := req.Headers[0][0]
-	headersValueTest := req.Headers[0][1]
-	if headersKey != headersKeyTest {
+	if strings.Compare(request.Req.Header.Get(headersKey), headersValue) != 0 {
 		t.Error("Headers key mismatch!")
 	}
-	if headersValue != headersValueTest {
-		t.Error("Headers value mismatch!")
-	}
+
 }
 
 func TestSendRequest(t *testing.T) {
@@ -88,7 +85,7 @@ func BenchmarkParallelRequestGETWithoutTLS(t *testing.B) {
 	var n int = t.N
 	var requests []Request = make([]Request, n)
 	for i := 0; i < n; i++ {
-		req, err := InitRequest("http://127.0.0.1:9999", "GET", nil, nil, true, false)
+		req, err := InitRequest("http://127.0.0.1:9999", "GET", nil, true, false)
 		if err == nil && req != nil {
 			requests[i] = *req
 		} else if err != nil {
@@ -104,7 +101,7 @@ func BenchmarkParallelRequestPOSTWithoutTLS(t *testing.B) {
 	var n int = t.N
 	var requests []Request = make([]Request, n)
 	for i := 0; i < n; i++ {
-		req, err := InitRequest("http://127.0.0.1:9999", "POST", []byte{}, nil, true, false)
+		req, err := InitRequest("http://127.0.0.1:9999", "POST", []byte{}, true, false)
 		if err == nil && req != nil {
 			requests[i] = *req
 		} else if err != nil {
@@ -133,7 +130,11 @@ type headerTestCase struct {
 }
 
 func TestRequest_CreateHeaderList(t *testing.T) {
-	var request Request
+	var request *Request
+	request, err := InitRequest("http://", "POST", nil, false, true)
+	if err != nil {
+		t.Error("Error!", err)
+	}
 	cases := []headerTestCase{
 		{input: []string{"Content-Type", "text/plain"}, expected: true, number: 1},
 		{input: []string{"Content-Type"}, expected: false, number: 2},
@@ -220,7 +221,7 @@ TestRequest_InitRequest(t *testing.T) {
 	}
 
 	for _, c := range cases {
-		_, err := InitRequest(c.host, c.method, c.body, nil, c.skipTLS, false)
+		_, err := InitRequest(c.host, c.method, c.body, c.skipTLS, false)
 		if c.expected != err {
 			if c.expected.Error() != err.Error() {
 				t.Errorf("Expected %v, received %v [test n. %d]", c.expected, err.Error(), c.number)
@@ -260,7 +261,7 @@ TestRequest_ExecuteRequest(t *testing.T) {
 
 	client := &http.Client{}
 	for _, c := range cases {
-		req, err := InitRequest(c.host, c.method, c.body, nil, c.skipTLS, false)
+		req, err := InitRequest(c.host, c.method, c.body, c.skipTLS, false)
 		if err == nil {
 			resp := req.ExecuteRequest(client)
 
@@ -283,7 +284,6 @@ type timeoutTestCase struct {
 	time    int
 	number  int
 }
-
 
 func TestRequest_Timeout(t *testing.T) {
 	// Need to run the server present in example/server_example.py
@@ -315,11 +315,11 @@ func TestParallelRequest(t *testing.T) {
 	var response []datastructure.Response
 
 	// Set to run at max 100 request in parallel (use CPU count for best effort)
-	var N = 100
+	var N = 10
 	// Create the list of request
-	for i := 0; i < 1000; i++ {
+	for i := 0; i < 100; i++ {
 		// Run against the `server_example.py` present in this folder
-		req, err := InitRequest("https://127.0.0.1:5000", "GET", nil, nil, true, false) // Alternate cert validation
+		req, err := InitRequest("https://127.0.0.1:5000", "GET", nil, true, false) // Alternate cert validation
 		if err != nil {
 			t.Error("Error request [", i, "]. Error: ", err)
 		} else {
