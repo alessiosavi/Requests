@@ -308,7 +308,7 @@ func (req *Request) ExecuteRequest(client *http.Client) datastructure.Response {
 }
 
 // SendRequest is delegated to initialize a new HTTP request.
-func (req *Request) SendRequest(url, method string, bodyData []byte, skipTLS bool) *datastructure.Response {
+func (req *Request) SendRequest(url, method string, bodyData []byte, headers []string, skipTLS bool) *datastructure.Response {
 
 	// Create a custom request
 	var (
@@ -362,6 +362,12 @@ func (req *Request) SendRequest(url, method string, bodyData []byte, skipTLS boo
 
 	if err != nil {
 		log.Debug("sendRequest | Error while initializing a new request -> ", err)
+		response.Error = err
+		return &response
+	}
+	err = req.CreateHeaderList(headers...)
+	if err != nil {
+		log.Debug("sendRequest | Error while initializing the headers -> ", err)
 		response.Error = err
 		return &response
 	}

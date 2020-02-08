@@ -70,14 +70,14 @@ func TestSendRequest(t *testing.T) {
 func BenchmarkRequestGETWithoutTLS(t *testing.B) {
 	var r Request
 	for i := 0; i < t.N; i++ {
-		r.SendRequest("http://127.0.0.1:9999", "GET", nil, false)
+		r.SendRequest("http://127.0.0.1:9999", "GET", nil, nil, false)
 	}
 }
 
 func BenchmarkRequestPOSTWithoutTLS(t *testing.B) {
 	var r Request
 	for i := 0; i < t.N; i++ {
-		r.SendRequest("http://127.0.0.1:9999", "POST", []byte{}, false)
+		r.SendRequest("http://127.0.0.1:9999", "POST", []byte{}, nil, false)
 	}
 }
 
@@ -114,13 +114,13 @@ func BenchmarkParallelRequestPOSTWithoutTLS(t *testing.B) {
 }
 
 func makeBadRequestURL1() *datastructure.Response {
-	return req.SendRequest("tcp://google.it", "GET", nil, true)
+	return req.SendRequest("tcp://google.it", "GET", nil, nil, true)
 }
 func makeBadRequestURL2() *datastructure.Response {
-	return req.SendRequest("google.it", "GET", nil, true)
+	return req.SendRequest("google.it", "GET", nil, nil, true)
 }
 func makeOKRequestURL3() *datastructure.Response {
-	return req.SendRequest("https://google.it", "GET", nil, true)
+	return req.SendRequest("https://google.it", "GET", nil, nil, true)
 }
 
 type headerTestCase struct {
@@ -189,7 +189,7 @@ func TestRequest_SendRequest(t *testing.T) {
 	}
 
 	for _, c := range cases {
-		resp := request.SendRequest(c.host, c.method, c.body, c.skipTLS)
+		resp := request.SendRequest(c.host, c.method, c.body, nil, c.skipTLS)
 		if c.expected != resp.Error {
 			if c.expected != nil && resp.Error != nil {
 				if !strings.Contains(resp.Error.Error(), c.expected.Error()) {
@@ -296,7 +296,7 @@ func TestRequest_Timeout(t *testing.T) {
 		var req Request // = InitDebugRequest()
 		req.SetTimeout(time.Second * time.Duration(c.time))
 		start := time.Now()
-		resp := req.SendRequest(c.host, c.method, c.body, c.skipTLS)
+		resp := req.SendRequest(c.host, c.method, c.body, nil,c.skipTLS)
 		elapsed := time.Since(start)
 		if resp.Error != nil {
 			t.Errorf("Received an error -> %v [test n. %d].\n Be sure that the python server on ./example folder is up and running", resp.Error, c.number)
