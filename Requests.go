@@ -308,7 +308,7 @@ func (req *Request) ExecuteRequest(client *http.Client) datastructure.Response {
 }
 
 // SendRequest is delegated to initialize a new HTTP request.
-func (req *Request) SendRequest(url, method string, bodyData []byte, headers []string, skipTLS bool) *datastructure.Response {
+func (req *Request) SendRequest(url, method string, bodyData []byte, headers []string, skipTLS bool, timeout time.Duration) *datastructure.Response {
 
 	// Create a custom request
 	var (
@@ -339,7 +339,7 @@ func (req *Request) SendRequest(url, method string, bodyData []byte, headers []s
 	// Manage TLS configuration
 	req.SetTLS(skipTLS)
 	// Set infinite timeout as default http/net
-	req.SetTimeout(time.Duration(0))
+	req.SetTimeout(timeout)
 
 	req.URL = url
 	req.Data = bodyData
