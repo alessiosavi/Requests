@@ -2,7 +2,6 @@ package requests
 
 import (
 	"errors"
-	"github.com/alessiosavi/Requests/datastructure"
 	"log"
 	"net"
 	"net/http"
@@ -10,6 +9,8 @@ import (
 	"strings"
 	"testing"
 	"time"
+
+	"github.com/alessiosavi/Requests/datastructure"
 )
 
 // Remove comment for set the log at debug level
@@ -70,14 +71,14 @@ func TestSendRequest(t *testing.T) {
 func BenchmarkRequestGETWithoutTLS(t *testing.B) {
 	var r Request
 	for i := 0; i < t.N; i++ {
-		r.SendRequest("http://127.0.0.1:9999", "GET", nil, nil, false)
+		r.SendRequest("http://127.0.0.1:9999", "GET", nil, nil, false, 0)
 	}
 }
 
 func BenchmarkRequestPOSTWithoutTLS(t *testing.B) {
 	var r Request
 	for i := 0; i < t.N; i++ {
-		r.SendRequest("http://127.0.0.1:9999", "POST", []byte{}, nil, false)
+		r.SendRequest("http://127.0.0.1:9999", "POST", []byte{}, nil, false, 0)
 	}
 }
 
@@ -114,13 +115,13 @@ func BenchmarkParallelRequestPOSTWithoutTLS(t *testing.B) {
 }
 
 func makeBadRequestURL1() *datastructure.Response {
-	return req.SendRequest("tcp://google.it", "GET", nil, nil, true)
+	return req.SendRequest("tcp://google.it", "GET", nil, nil, true, 0)
 }
 func makeBadRequestURL2() *datastructure.Response {
-	return req.SendRequest("google.it", "GET", nil, nil, true)
+	return req.SendRequest("google.it", "GET", nil, nil, true, 0)
 }
 func makeOKRequestURL3() *datastructure.Response {
-	return req.SendRequest("https://google.it", "GET", nil, nil, true)
+	return req.SendRequest("https://google.it", "GET", nil, nil, true, 0)
 }
 
 type headerTestCase struct {
@@ -189,7 +190,7 @@ func TestRequest_SendRequest(t *testing.T) {
 	}
 
 	for _, c := range cases {
-		resp := request.SendRequest(c.host, c.method, c.body, nil, c.skipTLS)
+		resp := request.SendRequest(c.host, c.method, c.body, nil, c.skipTLS, 0)
 		if c.expected != resp.Error {
 			if c.expected != nil && resp.Error != nil {
 				if !strings.Contains(resp.Error.Error(), c.expected.Error()) {
@@ -205,8 +206,7 @@ func TestRequest_SendRequest(t *testing.T) {
 	ts.Close()
 }
 
-func
-TestRequest_InitRequest(t *testing.T) {
+func TestRequest_InitRequest(t *testing.T) {
 
 	cases := []requestTestCase{
 
@@ -230,8 +230,7 @@ TestRequest_InitRequest(t *testing.T) {
 	}
 }
 
-func
-TestRequest_ExecuteRequest(t *testing.T) {
+func TestRequest_ExecuteRequest(t *testing.T) {
 	// create a listener with the desired port.
 	l, err := net.Listen("tcp", "127.0.0.1:8081")
 	if err != nil {
@@ -296,7 +295,7 @@ func TestRequest_Timeout(t *testing.T) {
 		var req Request // = InitDebugRequest()
 		req.SetTimeout(time.Second * time.Duration(c.time))
 		start := time.Now()
-		resp := req.SendRequest(c.host, c.method, c.body, nil,c.skipTLS)
+		resp := req.SendRequest(c.host, c.method, c.body, nil, c.skipTLS, 0)
 		elapsed := time.Since(start)
 		if resp.Error != nil {
 			t.Errorf("Received an error -> %v [test n. %d].\n Be sure that the python server on ./example folder is up and running", resp.Error, c.number)

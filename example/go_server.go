@@ -4,8 +4,9 @@ package main
 import (
 	"flag"
 	"fmt"
-	"github.com/valyala/fasthttp"
 	"log"
+
+	"github.com/valyala/fasthttp"
 )
 
 var (
