@@ -230,6 +230,26 @@ func TestRequest_InitRequest(t *testing.T) {
 	}
 }
 
+func Test_Headers(t *testing.T) {
+	var req Request = InitDebugRequest()
+	type testData struct {
+		key   string
+		value string
+	}
+
+	url := `https://postman-echo.com/get?foo1=bar1&foo2=bar2`
+	// SendRequest(url, method string, bodyData []byte, headers []string, skipTLS bool, timeout time.Duration) *datastructure.Response {
+	//resp := req.SendRequest("https://localhost:5000", "POST", nil, nil, true, 1*time.Second)
+	resp := req.SendRequest(url, "GET", nil, nil, true, 1*time.Second)
+
+	if resp.Error != nil {
+		t.Error("Request failed: ", resp.Error)
+	}
+	if len(resp.Headers) < 6 {
+		t.Error("Not enough headers: ", len(resp.Headers))
+	}
+
+}
 func TestRequest_ExecuteRequest(t *testing.T) {
 	// create a listener with the desired port.
 	l, err := net.Listen("tcp", "127.0.0.1:8081")

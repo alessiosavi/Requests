@@ -292,14 +292,13 @@ func (req *Request) ExecuteRequest(client *http.Client) datastructure.Response {
 	if err = resp.Body.Close(); err != nil {
 		log.Warning("Unable to close the response body: " + err.Error())
 	}
-	var headersResp []string
+	response.Headers = make(map[string]string, len(resp.Header))
 	for k, v := range resp.Header {
-		headersResp = append(headersResp, join(k, `:`, strings.Join(v, `,`)))
+		response.Headers[k] = strings.Join(v, `,`)
 	}
 
 	response.Body = bodyResp
 	response.StatusCode = resp.StatusCode
-	response.Headers = headersResp
 	response.Error = nil
 	elapsed := time.Since(start)
 	response.Time = elapsed
@@ -383,9 +382,8 @@ func (req *Request) SendRequest(url, method string, bodyData []byte, headers []s
 		req.Req.Header.Add("Content-Length", contentLength)
 	}
 
-	log.Debug("sendRequest | Executing request ...")
+	log.Debugf("sendRequest | Executing request .. %+v\n", req.Req)
 	client := &http.Client{Transport: req.Tr, Timeout: req.Timeout}
-	log.Debugf("sendRequest | Request: %+v\n", req.Req)
 
 	resp, err := client.Do(req.Req)
 
@@ -395,6 +393,11 @@ func (req *Request) SendRequest(url, method string, bodyData []byte, headers []s
 		return &response
 	}
 	defer resp.Body.Close()
+	response.Headers = make(map[string]string, len(resp.Header))
+	for k, v := range resp.Header {
+		response.Headers[k] = strings.Join(v, `,`)
+	}
+
 	log.Debug("sendRequest | Request executed, reading response ...")
 	bodyResp, err := ioutil.ReadAll(resp.Body)
 	if err != nil {
@@ -402,14 +405,9 @@ func (req *Request) SendRequest(url, method string, bodyData []byte, headers []s
 		response.Error = errors.New("ERROR_READING_RESPONSE -> " + err.Error())
 		return &response
 	}
-	var headersResp []string
-	for k, v := range resp.Header {
-		headersResp = append(headersResp, join(k, `:`, strings.Join(v, `,`)))
-	}
 
 	response.Body = bodyResp
 	response.StatusCode = resp.StatusCode
-	response.Headers = headersResp
 	response.Error = nil
 	elapsed := time.Since(start)
 	response.Time = elapsed

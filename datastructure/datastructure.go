@@ -8,7 +8,7 @@ import (
 
 // Response is delegated to save the necessary information related to an HTTP call
 type Response struct {
-	Headers    []string
+	Headers    map[string]string
 	Body       []byte
 	StatusCode int
 	Time       time.Duration
