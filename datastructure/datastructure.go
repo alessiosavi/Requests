@@ -2,6 +2,7 @@ package datastructure
 
 import (
 	"fmt"
+	"net/http"
 	"strings"
 	"time"
 )
@@ -13,6 +14,7 @@ type Response struct {
 	StatusCode int
 	Time       time.Duration
 	Error      error
+	Cookie     []*http.Cookie
 }
 
 func (resp *Response) Dump() string {

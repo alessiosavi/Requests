@@ -2,10 +2,12 @@ package requests
 
 import (
 	"errors"
+	"fmt"
 	"log"
 	"net"
 	"net/http"
 	"net/http/httptest"
+	"runtime"
 	"strings"
 	"testing"
 	"time"
@@ -26,7 +28,7 @@ func TestCreateHeaderList(t *testing.T) {
 		t.Error("Error, request is not initialized!")
 	}
 
-	request, err := InitRequest("http://", "POST", nil, false, true)
+	request, err := InitRequest("http://", "POST", nil, false, false)
 	if err != nil {
 		t.Error("Error!: ", err)
 	}
@@ -132,7 +134,7 @@ type headerTestCase struct {
 
 func TestRequest_CreateHeaderList(t *testing.T) {
 	var request *Request
-	request, err := InitRequest("http://", "POST", nil, false, true)
+	request, err := InitRequest("http://", "POST", nil, false, false)
 	if err != nil {
 		t.Error("Error!", err)
 	}
@@ -231,15 +233,33 @@ func TestRequest_InitRequest(t *testing.T) {
 }
 
 func Test_Headers(t *testing.T) {
-	var req Request = InitDebugRequest()
-	type testData struct {
-		key   string
-		value string
+	var req Request
+	// create a listener with the desired port.
+	l, err := net.Listen("tcp", "127.0.0.1:8081")
+	if err != nil {
+		log.Fatal(err)
 	}
 
-	url := `https://postman-echo.com/get?foo1=bar1&foo2=bar2`
-	// SendRequest(url, method string, bodyData []byte, headers []string, skipTLS bool, timeout time.Duration) *datastructure.Response {
-	//resp := req.SendRequest("https://localhost:5000", "POST", nil, nil, true, 1*time.Second)
+	f := http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.Header().Set("1", "1")
+		w.Header().Set("2", "2")
+		w.Header().Set("3", "3")
+		w.Header().Set("4", "4")
+		w.Header().Set("5", "5")
+		w.Header().Set("6", "6")
+		_, _ = fmt.Fprintf(w, "Hello, %s", r.Proto)
+	})
+	ts := httptest.NewUnstartedServer(f)
+	// NewUnstartedServer creates a listener. Close that listener and replace
+	// with the one we created.
+	_ = ts.Listener.Close()
+	ts.Listener = l
+
+	// Start the server.
+	ts.Start()
+	time.Sleep(1 * time.Millisecond)
+
+	url := `http://127.0.0.1:8081`
 	resp := req.SendRequest(url, "GET", nil, nil, true, 1*time.Second)
 
 	if resp.Error != nil {
@@ -247,7 +267,10 @@ func Test_Headers(t *testing.T) {
 	}
 	if len(resp.Headers) < 6 {
 		t.Error("Not enough headers: ", len(resp.Headers))
+		t.Error(resp.Headers)
 	}
+	ts.CloseClientConnections()
+	ts.Close()
 
 }
 func TestRequest_ExecuteRequest(t *testing.T) {
@@ -260,7 +283,7 @@ func TestRequest_ExecuteRequest(t *testing.T) {
 	ts := httptest.NewUnstartedServer(nil)
 	// NewUnstartedServer creates a listener. Close that listener and replace
 	// with the one we created.
-	ts.Listener.Close()
+	_ = ts.Listener.Close()
 	ts.Listener = l
 
 	// Start the server.
@@ -333,16 +356,16 @@ func TestParallelRequest(t *testing.T) {
 	// This array will contains the response from the given request
 	var response []datastructure.Response
 
-	// Set to run at max 100 request in parallel (use CPU count for best effort)
-	var N = 10
+	// Set to run at max N request in parallel (use CPU count for best effort)
+	var N = runtime.NumCPU()
 	// Create the list of request
-	for i := 0; i < 100; i++ {
+	for i := 0; i < 1000; i++ {
 		// Run against the `server_example.py` present in this folder
 		req, err := InitRequest("https://127.0.0.1:5000", "GET", nil, true, false) // Alternate cert validation
 		if err != nil {
 			t.Error("Error request [", i, "]. Error: ", err)
 		} else {
-			req.SetTimeout(1000 * time.Millisecond)
+			req.SetTimeout(10 * time.Second)
 			reqs = append(reqs, *req)
 		}
 	}
@@ -357,5 +380,5 @@ func TestParallelRequest(t *testing.T) {
 			t.Error("Error request [", i, "]. Error: ", response[i].Error)
 		}
 	}
-	log.Printf("Requests took %s", elapsed)
+	log.Printf("Sending %d Requests took %s", len(reqs), elapsed)
 }

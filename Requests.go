@@ -67,7 +67,7 @@ func (req *Request) SetTimeout(t time.Duration) {
 		value = -value
 		log.Warning("WARNING! Get a negative timeout, using absolute value")
 	}
-	req.Timeout = t
+	req.Timeout = time.Duration(value) * time.Millisecond
 }
 
 // AddCookie is delegated to add the given list of cookie to the request
@@ -143,8 +143,8 @@ func (req *Request) initGetRequest() {
 	}
 }
 
-// GetUlimitValue return the current and max value for ulimit
-func GetUlimitValue() (uint64, uint64) {
+// getUlimitValue return the current and max value for ulimit
+func getUlimitValue() (uint64, uint64) {
 	var rLimit syscall.Rlimit
 	err := syscall.Getrlimit(syscall.RLIMIT_NOFILE, &rLimit)
 	if err != nil {
@@ -159,7 +159,7 @@ func ParallelRequest(reqs []Request, N int) []datastructure.Response {
 	var wg sync.WaitGroup
 	var results = make([]datastructure.Response, len(reqs))
 
-	ulimitCurr, _ := GetUlimitValue()
+	ulimitCurr, _ := getUlimitValue()
 	if uint64(N) >= ulimitCurr {
 		N = int(float64(ulimitCurr) * 0.7)
 		log.Warning("Provided a thread factor greater than current ulimit size, setting at MAX [", N, "] requests")
@@ -281,6 +281,12 @@ func (req *Request) ExecuteRequest(client *http.Client) datastructure.Response {
 	}
 
 	defer resp.Body.Close()
+	response.Headers = make(map[string]string, len(resp.Header))
+	for k, v := range resp.Header {
+		response.Headers[k] = strings.Join(v, `,`)
+	}
+	response.Cookie = resp.Cookies()
+
 	//log.Debug("sendRequest | Request executed, reading response ...")
 	bodyResp, err := ioutil.ReadAll(resp.Body)
 	if err != nil {
@@ -288,13 +294,6 @@ func (req *Request) ExecuteRequest(client *http.Client) datastructure.Response {
 		err = errors.New("ERROR_READING_RESPONSE -> " + err.Error())
 		response.Error = err
 		return response
-	}
-	if err = resp.Body.Close(); err != nil {
-		log.Warning("Unable to close the response body: " + err.Error())
-	}
-	response.Headers = make(map[string]string, len(resp.Header))
-	for k, v := range resp.Header {
-		response.Headers[k] = strings.Join(v, `,`)
 	}
 
 	response.Body = bodyResp
@@ -393,11 +392,12 @@ func (req *Request) SendRequest(url, method string, bodyData []byte, headers []s
 		return &response
 	}
 	defer resp.Body.Close()
+
 	response.Headers = make(map[string]string, len(resp.Header))
 	for k, v := range resp.Header {
 		response.Headers[k] = strings.Join(v, `,`)
 	}
-
+	response.Cookie = resp.Cookies()
 	log.Debug("sendRequest | Request executed, reading response ...")
 	bodyResp, err := ioutil.ReadAll(resp.Body)
 	if err != nil {
@@ -413,15 +413,6 @@ func (req *Request) SendRequest(url, method string, bodyData []byte, headers []s
 	response.Time = elapsed
 	log.Debug("sendRequest | Elapsed -> ", elapsed, " | STOP!")
 	return &response
-}
-
-// Join is a quite efficient string concatenator
-func join(strs ...string) string {
-	var sb strings.Builder
-	for _, str := range strs {
-		sb.WriteString(str)
-	}
-	return sb.String()
 }
 
 func basicAuth(data string) string {
