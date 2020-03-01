@@ -3,7 +3,6 @@ package requests
 import (
 	"bytes"
 	"crypto/tls"
-	"encoding/base64"
 	"errors"
 	"io/ioutil"
 	"net/http"
@@ -71,10 +70,14 @@ func (req *Request) SetTimeout(t time.Duration) {
 }
 
 // AddCookie is delegated to add the given list of cookie to the request
-func (req *Request) AddCookie(c ...*http.Cookie) {
+func (req *Request) AddCookie(c ...*http.Cookie) error {
+	if req.Req == nil {
+		return errors.New("request not initialized")
+	}
 	for i := range c {
 		req.Req.AddCookie(c[i])
 	}
+	return nil
 }
 
 // CreateHeaderList is delegated to initialize a list of headers.
@@ -101,9 +104,6 @@ func (req *Request) CreateHeaderList(headers ...string) error {
 	for i := 0; i < length; i += 2 {
 		key := headers[i]
 		value := headers[i+1]
-		if strings.EqualFold(key, "Authorization") {
-			value = "Basic " + basicAuth(value)
-		}
 		log.Debug("createHeaderList | ", counter, ") Key: ", key, " Value: ", value)
 		counter++
 		if strings.EqualFold(`Authorization`, key) {
@@ -247,14 +247,6 @@ func InitRequest(url, method string, bodyData []byte, skipTLS bool, debug bool) 
 		return nil, err
 	}
 
-	// If content length was not specified (only for POST) add an headers with the lenght of the request
-	if req.Method == "POST" {
-		contentLength := strconv.FormatInt(req.Req.ContentLength, 10)
-		req.Req.Header.Set("Content-Length", contentLength)
-		log.Debug("sendRequest | Setting Content-Length -> ", contentLength)
-
-	}
-
 	return &req, err
 }
 
@@ -264,6 +256,10 @@ func (req *Request) ExecuteRequest(client *http.Client) datastructure.Response {
 	var start = time.Now()
 	var err error
 
+	if client == nil {
+		client = http.DefaultClient
+	}
+
 	log.Debug("ExecuteRequest | Executing request ...")
 	//client := &http.Client{Transport: req.Tr, Timeout: req.Timeout}
 	req.Tr.DisableKeepAlives = false
@@ -271,6 +267,14 @@ func (req *Request) ExecuteRequest(client *http.Client) datastructure.Response {
 	client.Timeout = req.Timeout
 	log.Debugf("Request: %+v\n", req.Req)
 	log.Debugf("Client: %+v\n", client)
+
+	// If content length was not specified (only for POST) add an headers with the lenght of the request
+	if req.Method == "POST" && req.Req.Header.Get("Content-Length") == "" {
+		contentLength := strconv.FormatInt(req.Req.ContentLength, 10)
+		req.Req.Header.Set("Content-Length", contentLength)
+		log.Debug("sendRequest | Setting Content-Length -> ", contentLength)
+
+	}
 	resp, err := client.Do(req.Req)
 
 	if err != nil {
@@ -415,6 +419,16 @@ func (req *Request) SendRequest(url, method string, bodyData []byte, headers []s
 	return &response
 }
 
-func basicAuth(data string) string {
-	return base64.StdEncoding.EncodeToString([]byte(data))
+// BasicAuth is compute the basic auth value for the given data
+func (req *Request) SetBasicAuth(username, password string) {
+	req.Req.SetBasicAuth(username, password)
+}
+
+func (req *Request) SetBearerAuth(token string) error {
+	if req.Req == nil {
+		return errors.New("request is not initialized, call InitRequest")
+	}
+	req.Req.Header.Set("Authorization", "Bearer "+token)
+	return nil
+
 }
