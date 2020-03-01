@@ -15,6 +15,7 @@ type Response struct {
 	Time       time.Duration
 	Error      error
 	Cookie     []*http.Cookie
+	Respnse    *http.Response
 }
 
 func (resp *Response) Dump() string {

@@ -205,7 +205,7 @@ func InitRequest(url, method string, bodyData []byte, skipTLS bool, debug bool) 
 
 	if !strings.HasPrefix(url, "http://") && !strings.HasPrefix(url, "https://") {
 		err = errors.New("PREFIX_URL_NOT_VALID")
-		log.Debug("sendRequest | Error! ", err, " URL: ", url)
+		log.Debug("InitRequest | Error! ", err, " URL: ", url)
 		return nil, err
 	}
 
@@ -213,7 +213,7 @@ func InitRequest(url, method string, bodyData []byte, skipTLS bool, debug bool) 
 
 	// Validate HTTP method
 	if !req.methodIsAllowed(method) {
-		log.Warning("sendRequest | Method [" + method + "] is not allowed!")
+		log.Warning("InitRequest | Method [" + method + "] is not allowed!")
 		err = errors.New("METHOD_NOT_ALLOWED")
 		return nil, err
 	}
@@ -238,12 +238,12 @@ func InitRequest(url, method string, bodyData []byte, skipTLS bool, debug bool) 
 	case "DELETE":
 		req.Req, err = http.NewRequest(req.Method, req.URL, nil)
 	default:
-		log.Debug("sendRequest | Unknown method -> " + method)
+		log.Debug("InitRequest | Unknown method -> " + method)
 		err = errors.New("HTTP_METHOD_NOT_MANAGED")
 	}
 
 	if err != nil {
-		log.Debug("sendRequest | Error while initializing a new request -> ", err)
+		log.Debug("InitRequest | Error while initializing a new request -> ", err)
 		return nil, err
 	}
 
@@ -272,7 +272,7 @@ func (req *Request) ExecuteRequest(client *http.Client) datastructure.Response {
 	if req.Method == "POST" && req.Req.Header.Get("Content-Length") == "" {
 		contentLength := strconv.FormatInt(req.Req.ContentLength, 10)
 		req.Req.Header.Set("Content-Length", contentLength)
-		log.Debug("sendRequest | Setting Content-Length -> ", contentLength)
+		log.Debug("ExecuteRequest | Setting Content-Length -> ", contentLength)
 
 	}
 	resp, err := client.Do(req.Req)
@@ -291,7 +291,7 @@ func (req *Request) ExecuteRequest(client *http.Client) datastructure.Response {
 	}
 	response.Cookie = resp.Cookies()
 
-	//log.Debug("sendRequest | Request executed, reading response ...")
+	//log.Debug("ExecuteRequest | Request executed, reading response ...")
 	bodyResp, err := ioutil.ReadAll(resp.Body)
 	if err != nil {
 		log.Error("Unable to read response! | Err: ", err)
@@ -305,6 +305,7 @@ func (req *Request) ExecuteRequest(client *http.Client) datastructure.Response {
 	response.Error = nil
 	elapsed := time.Since(start)
 	response.Time = elapsed
+	response.Respnse = resp
 	log.Debug("ExecuteRequest | Elapsed -> ", elapsed, " | STOP!")
 	return response
 }
@@ -415,6 +416,7 @@ func (req *Request) SendRequest(url, method string, bodyData []byte, headers []s
 	response.Error = nil
 	elapsed := time.Since(start)
 	response.Time = elapsed
+	response.Respnse = resp
 	log.Debug("sendRequest | Elapsed -> ", elapsed, " | STOP!")
 	return &response
 }
@@ -429,6 +431,14 @@ func (req *Request) SetBearerAuth(token string) error {
 		return errors.New("request is not initialized, call InitRequest")
 	}
 	req.Req.Header.Set("Authorization", "Bearer "+token)
+	return nil
+}
+
+func (req *Request) AddHeader(key, value string) error {
+	if req.Req == nil {
+		return errors.New("request is not initialized, call InitRequest")
+	}
+	req.Req.Header.Set(key, value)
 	return nil
 
 }
