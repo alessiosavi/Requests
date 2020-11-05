@@ -19,14 +19,14 @@ func main() {
 func examplePOSTRequest() {
 	// Initialize request
 	var req *requests.Request
-	req, err := requests.InitRequest("https://postman-echo.com", "POST", []byte("get?foo1=bar1&foo2=bar2"), false, true)
-	if err != nil {
+	var err error
+	if req, err = requests.InitRequest("https://postman-echo.com", "POST", []byte("get?foo1=bar1&foo2=bar2"), false, true); err != nil {
 		fmt.Println("Error: ", err)
 		return
 	}
+
 	//Set custom headers directly in the method
-	err = req.CreateHeaderList("Content-Type", "text/plain; charset=UTF-8", "Authorization", "Basic cG9zdG1hbjpwYXNzd29yZA==")
-	if err != nil {
+	if err = req.CreateHeaderList("Content-Type", "text/plain; charset=UTF-8", "Authorization", "Basic cG9zdG1hbjpwYXNzd29yZA=="); err != nil {
 		fmt.Println("Error: ", err)
 		return
 	}
@@ -36,8 +36,7 @@ func examplePOSTRequest() {
 	headers = append(headers, "text/plain; charset=UTF-8")
 	headers = append(headers, "Authorization")
 	headers = append(headers, "Basic cG9zdG1hbjpwYXNzd29yZA==")
-	err = req.CreateHeaderList(headers...)
-	if err != nil {
+	if err = req.CreateHeaderList(headers...); err != nil {
 		fmt.Println("Error: ", err)
 		return
 	}
@@ -129,7 +128,7 @@ func exampleBasicAuth() {
 	if err != nil {
 		fmt.Println("ERROR! ", err)
 	}
-	req.CreateHeaderList("Accept", "application/json", "Accept-Language", "en_US", "Authorization", "postman:password")
+	_ = req.CreateHeaderList("Accept", "application/json", "Accept-Language", "en_US", "Authorization", "postman:password")
 	client := &http.Client{}
 	resp := req.ExecuteRequest(client)
 	fmt.Println(resp.Dump())

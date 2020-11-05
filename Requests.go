@@ -18,8 +18,17 @@ import (
 
 // AllowedMethod represent the HTTP method allowed in the request
 var allowedMethod = []string{"GET", "POST", "HEAD", "PUT", "DELETE", "OPTIONS"}
-var tlsTransport *http.Transport = &http.Transport{TLSClientConfig: &tls.Config{InsecureSkipVerify: false}, DisableKeepAlives: true}
-var transport *http.Transport = &http.Transport{TLSClientConfig: &tls.Config{InsecureSkipVerify: true}, DisableKeepAlives: true}
+var tlsTransport *http.Transport = &http.Transport{TLSClientConfig: &tls.Config{InsecureSkipVerify: false},
+	DisableKeepAlives:   false,
+	MaxIdleConns:        512,
+	MaxIdleConnsPerHost: 512,
+	MaxConnsPerHost:     512}
+var transport *http.Transport = &http.Transport{TLSClientConfig: &tls.Config{InsecureSkipVerify: true},
+	DisableKeepAlives:   false,
+	MaxIdleConns:        512,
+	MaxIdleConnsPerHost: 512,
+	MaxConnsPerHost:     512,
+}
 
 // Request will contains all the data related to the current HTTP request and response.
 type Request struct {
@@ -57,7 +66,6 @@ func (req *Request) methodIsAllowed(method string) bool {
 
 // SetTimeout is delegated to validate the given timeout and set to the request
 func (req *Request) SetTimeout(t time.Duration) {
-
 	value := t.Milliseconds()
 	if value == 0 {
 		log.Debug("WARNING! Setting a timeout of 0 means infinite timeout!!")
@@ -82,7 +90,6 @@ func (req *Request) AddCookie(c ...*http.Cookie) error {
 // CreateHeaderList is delegated to initialize a list of headers.
 // Every row of the matrix contains [key,value]
 func (req *Request) CreateHeaderList(headers ...string) error {
-
 	if headers == nil {
 		return nil
 	}
@@ -142,7 +149,6 @@ func (req *Request) initGetRequest() {
 	}
 }
 
-
 // ParallelRequest is delegated to run the given list of request in parallel, sending N request at each time
 func ParallelRequest(reqs []Request, N int) []datastructure.Response {
 	var wg sync.WaitGroup
@@ -174,11 +180,16 @@ func (req *Request) SetTLS(skipTLS bool) {
 	if skipTLS {
 		// Accept not trusted SSL Certificates
 		req.Tr = transport
-		log.Debug("TLS certificate validation disabled")
+		log.Debug("SetTLS | TLS certificate validation disabled")
 	} else {
 		req.Tr = tlsTransport
-		log.Debug("TLS certificate validation enabled")
+		log.Debug("SetTLS | TLS certificate validation enabled")
 	}
+}
+
+func (req *Request) SetTransportLayer(tl *http.Transport) {
+	req.Tr = tl
+	log.Debugf("SetTransportLayer | The following transport layer have been set: [%+v]\n", tl)
 }
 
 // InitRequest is delegated to initialize a new request with the given parameter.
