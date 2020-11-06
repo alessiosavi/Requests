@@ -169,7 +169,7 @@ func TestRequest_SendRequest(t *testing.T) {
 	// create a listener with the desired port.
 	l, err := net.Listen("tcp", "127.0.0.1:8082")
 	if err != nil {
-		log.Fatal(err)
+		t.Fatal(err)
 	}
 
 	ts := httptest.NewUnstartedServer(nil)
@@ -386,7 +386,7 @@ func TestParallelRequest(t *testing.T) {
 			t.Error("Error request [", i, "]. Error: ", response[i].Error)
 		}
 	}
-	log.Printf("Sending %d Requests took %s", len(reqs), elapsed)
+	t.Logf("Sending %d Requests took %s", len(reqs), elapsed)
 }
 
 func Test_escapeURL(t *testing.T) {

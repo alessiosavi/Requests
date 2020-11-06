@@ -19,17 +19,6 @@ import (
 
 // AllowedMethod represent the HTTP method allowed in the request
 var allowedMethod = []string{"GET", "POST", "HEAD", "PUT", "DELETE", "OPTIONS"}
-var tlsTransport *http.Transport = &http.Transport{TLSClientConfig: &tls.Config{InsecureSkipVerify: false},
-	DisableKeepAlives:   false,
-	MaxIdleConns:        512,
-	MaxIdleConnsPerHost: 512,
-	MaxConnsPerHost:     512}
-var transport *http.Transport = &http.Transport{TLSClientConfig: &tls.Config{InsecureSkipVerify: true},
-	DisableKeepAlives:   false,
-	MaxIdleConns:        512,
-	MaxIdleConnsPerHost: 512,
-	MaxConnsPerHost:     512,
-}
 
 // Request will contains all the data related to the current HTTP request and response.
 type Request struct {
@@ -154,11 +143,16 @@ func (req *Request) initGetRequest() {
 func ParallelRequest(reqs []Request, N int) []datastructure.Response {
 	var wg sync.WaitGroup
 	var results = make([]datastructure.Response, len(reqs))
-  // Need to fix the hardcoded limit
+	// Need to fix the hardcoded limit
 	ulimitCurr := 512
 	if N >= ulimitCurr {
 		N = int(float64(ulimitCurr) * 0.7)
 		log.Warning("Provided a thread factor greater than current ulimit size, setting at MAX [", N, "] requests")
+	}
+	for i := range reqs {
+		reqs[i].Tr.MaxIdleConns = N
+		reqs[i].Tr.MaxIdleConnsPerHost = N
+		reqs[i].Tr.MaxConnsPerHost = N
 	}
 
 	semaphore := make(chan struct{}, N)
@@ -178,12 +172,15 @@ func ParallelRequest(reqs []Request, N int) []datastructure.Response {
 
 // SetTLS is delegated to enable/disable TLS certificate validation
 func (req *Request) SetTLS(skipTLS bool) {
+	var transport *http.Transport = &http.Transport{DisableKeepAlives: false}
 	if skipTLS {
 		// Accept not trusted SSL Certificates
+		transport.TLSClientConfig = &tls.Config{InsecureSkipVerify: true}
 		req.Tr = transport
 		log.Debug("SetTLS | TLS certificate validation disabled")
 	} else {
-		req.Tr = tlsTransport
+		transport.TLSClientConfig = &tls.Config{InsecureSkipVerify: false}
+		req.Tr = transport
 		log.Debug("SetTLS | TLS certificate validation enabled")
 	}
 }
