@@ -221,6 +221,7 @@ func InitRequest(url, method string, bodyData []byte, skipTLS bool, debug bool) 
 
 	// Escape GET parameters after first slash `/` and then concate it
 	if firstSlash := strings.Index(url, "/"); firstSlash > 0 {
+		firstSlash++
 		urlRune := []rune(url)
 		urlFront := string(urlRune[:firstSlash])
 		urlBack := string(urlRune[firstSlash:])
