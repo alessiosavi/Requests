@@ -6,6 +6,7 @@ import (
 	"errors"
 	"io/ioutil"
 	"net/http"
+	netURL "net/url"
 	"strconv"
 	"strings"
 	"sync"
@@ -216,6 +217,19 @@ func InitRequest(url, method string, bodyData []byte, skipTLS bool, debug bool) 
 		log.Warning("InitRequest | Method [" + method + "] is not allowed!")
 		err = errors.New("METHOD_NOT_ALLOWED")
 		return nil, err
+	}
+
+	// Escape GET parameters after first slash `/` and then concate it
+	if firstSlash := strings.Index(url, "/"); firstSlash > 0 {
+		firstSlash++
+		urlRune := []rune(url)
+		urlFront := string(urlRune[:firstSlash])
+		urlBack := string(urlRune[firstSlash:])
+
+		urlBack = netURL.PathEscape(urlBack)
+
+		// Concate front and back
+		url = urlFront + urlBack
 	}
 
 	// Manage TLS configuration
