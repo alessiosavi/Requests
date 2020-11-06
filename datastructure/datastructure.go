@@ -15,9 +15,10 @@ type Response struct {
 	Time       time.Duration
 	Error      error
 	Cookie     []*http.Cookie
-	Respnse    *http.Response
+	Response   *http.Response
 }
 
+// Dump method is delegated to dump the information related to the request
 func (resp *Response) Dump() string {
 	var sb strings.Builder
 

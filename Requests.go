@@ -172,7 +172,7 @@ func ParallelRequest(reqs []Request, N int) []datastructure.Response {
 
 // SetTLS is delegated to enable/disable TLS certificate validation
 func (req *Request) SetTLS(skipTLS bool) {
-	var transport *http.Transport = &http.Transport{DisableKeepAlives: false}
+	var transport = &http.Transport{DisableKeepAlives: false}
 	if skipTLS {
 		// Accept not trusted SSL Certificates
 		transport.TLSClientConfig = &tls.Config{InsecureSkipVerify: true}
@@ -284,7 +284,7 @@ func (req *Request) ExecuteRequest(client *http.Client) datastructure.Response {
 	log.Debugf("Request: %+v\n", req.Req)
 	log.Debugf("Client: %+v\n", client)
 
-	// If content length was not specified (only for POST) add an headers with the lenght of the request
+	// If content length was not specified (only for POST) add an headers with the length of the request
 	if req.Method == "POST" && req.Req.Header.Get("Content-Length") == "" {
 		contentLength := strconv.FormatInt(req.Req.ContentLength, 10)
 		req.Req.Header.Set("Content-Length", contentLength)
@@ -321,7 +321,7 @@ func (req *Request) ExecuteRequest(client *http.Client) datastructure.Response {
 	response.Error = nil
 	elapsed := time.Since(start)
 	response.Time = elapsed
-	response.Respnse = resp
+	response.Response = resp
 	log.Debug("ExecuteRequest | Elapsed -> ", elapsed, " | STOP!")
 	return response
 }
@@ -432,16 +432,17 @@ func (req *Request) SendRequest(url, method string, bodyData []byte, headers []s
 	response.Error = nil
 	elapsed := time.Since(start)
 	response.Time = elapsed
-	response.Respnse = resp
+	response.Response = resp
 	log.Debug("sendRequest | Elapsed -> ", elapsed, " | STOP!")
 	return &response
 }
 
-// BasicAuth is compute the basic auth value for the given data
+// SetBasicAuth is delegated to compute the Basic Authentication value for the given data
 func (req *Request) SetBasicAuth(username, password string) {
 	req.Req.SetBasicAuth(username, password)
 }
 
+// SetBearerAuth is delegated to compute the Bearer token for the given data
 func (req *Request) SetBearerAuth(token string) error {
 	if req.Req == nil {
 		return errors.New("request is not initialized, call InitRequest")
@@ -450,6 +451,7 @@ func (req *Request) SetBearerAuth(token string) error {
 	return nil
 }
 
+// AddHeader is delegated to add a new header to the request
 func (req *Request) AddHeader(key, value string) error {
 	if req.Req == nil {
 		return errors.New("request is not initialized, call InitRequest")

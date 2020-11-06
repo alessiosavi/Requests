@@ -86,8 +86,8 @@ func BenchmarkRequestPOSTWithoutTLS(t *testing.B) {
 }
 
 func BenchmarkParallelRequestGETWithoutTLS(t *testing.B) {
-	var n int = t.N
-	var requests []Request = make([]Request, n)
+	var n = t.N
+	var requests = make([]Request, n)
 	for i := 0; i < n; i++ {
 		req, err := InitRequest("http://127.0.0.1:9999", "GET", nil, true, false)
 		if err == nil && req != nil {
@@ -102,8 +102,8 @@ func BenchmarkParallelRequestGETWithoutTLS(t *testing.B) {
 }
 
 func BenchmarkParallelRequestPOSTWithoutTLS(t *testing.B) {
-	var n int = t.N
-	var requests []Request = make([]Request, n)
+	var n = t.N
+	var requests = make([]Request, n)
 	for i := 0; i < n; i++ {
 		req, err := InitRequest("http://127.0.0.1:9999", "POST", []byte{}, true, false)
 		if err == nil && req != nil {

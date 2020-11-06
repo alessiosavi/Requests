@@ -10,7 +10,7 @@ import (
 )
 
 var (
-	counter int
+	//counter int
 	addr    = flag.String("addr", ":9999", "TCP address to listen to")
 )
 
@@ -23,5 +23,5 @@ func main() {
 func requestHandler(ctx *fasthttp.RequestCtx) {
 	//counter = counter + 1
 	//_, _ = fmt.Fprintf(ctx, "Counter: "+strconv.Itoa(counter))
-	fmt.Fprintf(ctx, "")
+	_, _ = fmt.Fprintf(ctx, "")
 }
