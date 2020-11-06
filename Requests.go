@@ -10,7 +10,6 @@ import (
 	"strconv"
 	"strings"
 	"sync"
-	"syscall"
 	"time"
 
 	"github.com/alessiosavi/Requests/datastructure"
@@ -144,24 +143,26 @@ func (req *Request) initGetRequest() {
 	}
 }
 
-// getUlimitValue return the current and max value for ulimit
-func getUlimitValue() (uint64, uint64) {
-	var rLimit syscall.Rlimit
-	err := syscall.Getrlimit(syscall.RLIMIT_NOFILE, &rLimit)
-	if err != nil {
-		log.Error("Error Getting Rlimit: ", err)
-	}
-	log.Debug("Current Ulimit: ", rLimit.Cur)
-	return rLimit.Cur, rLimit.Max
-}
+// Disable, this function work only on linux :(
+//// getUlimitValue return the current and max value for ulimit
+//func getUlimitValue() (uint64, uint64) {
+//	var rLimit syscall.Rlimit
+//	err := syscall.Getrlimit(syscall.RLIMIT_NOFILE, &rLimit)
+//	if err != nil {
+//		log.Error("Error Getting Rlimit: ", err)
+//	}
+//	log.Debug("Current Ulimit: ", rLimit.Cur)
+//	return rLimit.Cur, rLimit.Max
+//}
 
 // ParallelRequest is delegated to run the given list of request in parallel, sending N request at each time
 func ParallelRequest(reqs []Request, N int) []datastructure.Response {
 	var wg sync.WaitGroup
 	var results = make([]datastructure.Response, len(reqs))
 
-	ulimitCurr, _ := getUlimitValue()
-	if uint64(N) >= ulimitCurr {
+	//ulimitCurr, _ := getUlimitValue()
+	ulimitCurr := 512
+	if N >= ulimitCurr {
 		N = int(float64(ulimitCurr) * 0.7)
 		log.Warning("Provided a thread factor greater than current ulimit size, setting at MAX [", N, "] requests")
 	}
@@ -196,7 +197,7 @@ func (req *Request) SetTLS(skipTLS bool) {
 // InitRequest is delegated to initialize a new request with the given parameter.
 // NOTE: it will use the default timeout -> NO TIMEOUT. In order to specify a different timeout you can use the delegated method
 // NOTE: headers have to be set with the delegated method
-func InitRequest(url, method string, bodyData []byte, skipTLS bool, debug bool) (*Request, error) {
+func InitRequest(url, method string, bodyData []byte, skipTLS, debug bool) (*Request, error) {
 	var err error
 	var req Request
 
@@ -219,18 +220,7 @@ func InitRequest(url, method string, bodyData []byte, skipTLS bool, debug bool) 
 		return nil, err
 	}
 
-	// Escape GET parameters after first slash `/` and then concate it
-	if firstSlash := strings.Index(url, "/"); firstSlash > 0 {
-		firstSlash++
-		urlRune := []rune(url)
-		urlFront := string(urlRune[:firstSlash])
-		urlBack := string(urlRune[firstSlash:])
-
-		urlBack = netURL.PathEscape(urlBack)
-
-		// Concate front and back
-		url = urlFront + urlBack
-	}
+	url = escapeURL(url)
 
 	// Manage TLS configuration
 	req.SetTLS(skipTLS)
@@ -262,6 +252,22 @@ func InitRequest(url, method string, bodyData []byte, skipTLS bool, debug bool) 
 	}
 
 	return &req, err
+}
+
+func escapeURL(url string) string {
+	// Escape GET parameters after first slash `/` and then concatenate it
+	if firstSlash := strings.LastIndex(url, "?"); firstSlash > 0 {
+		firstSlash++
+		urlRune := []rune(url)
+		urlFront := string(urlRune[:firstSlash])
+		urlBack := string(urlRune[firstSlash:])
+
+		urlBack = netURL.PathEscape(urlBack)
+
+		// Concate front and back
+		url = urlFront + urlBack
+	}
+	return url
 }
 
 // ExecuteRequest is delegated to run a previously allocated request.
