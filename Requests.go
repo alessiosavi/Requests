@@ -6,6 +6,7 @@ import (
 	"errors"
 	"io/ioutil"
 	"net/http"
+	netURL "net/url"
 	"strconv"
 	"strings"
 	"sync"
@@ -153,7 +154,7 @@ func (req *Request) initGetRequest() {
 func ParallelRequest(reqs []Request, N int) []datastructure.Response {
 	var wg sync.WaitGroup
 	var results = make([]datastructure.Response, len(reqs))
-
+  // Need to fix the hardcoded limit
 	ulimitCurr := 512
 	if N >= ulimitCurr {
 		N = int(float64(ulimitCurr) * 0.7)
@@ -195,7 +196,7 @@ func (req *Request) SetTransportLayer(tl *http.Transport) {
 // InitRequest is delegated to initialize a new request with the given parameter.
 // NOTE: it will use the default timeout -> NO TIMEOUT. In order to specify a different timeout you can use the delegated method
 // NOTE: headers have to be set with the delegated method
-func InitRequest(url, method string, bodyData []byte, skipTLS bool, debug bool) (*Request, error) {
+func InitRequest(url, method string, bodyData []byte, skipTLS, debug bool) (*Request, error) {
 	var err error
 	var req Request
 
@@ -217,6 +218,8 @@ func InitRequest(url, method string, bodyData []byte, skipTLS bool, debug bool) 
 		err = errors.New("METHOD_NOT_ALLOWED")
 		return nil, err
 	}
+
+	url = escapeURL(url)
 
 	// Manage TLS configuration
 	req.SetTLS(skipTLS)
@@ -248,6 +251,22 @@ func InitRequest(url, method string, bodyData []byte, skipTLS bool, debug bool) 
 	}
 
 	return &req, err
+}
+
+func escapeURL(url string) string {
+	// Escape GET parameters after first slash `/` and then concatenate it
+	if firstSlash := strings.LastIndex(url, "?"); firstSlash > 0 {
+		firstSlash++
+		urlRune := []rune(url)
+		urlFront := string(urlRune[:firstSlash])
+		urlBack := string(urlRune[firstSlash:])
+
+		urlBack = netURL.PathEscape(urlBack)
+
+		// Concate front and back
+		url = urlFront + urlBack
+	}
+	return url
 }
 
 // ExecuteRequest is delegated to run a previously allocated request.

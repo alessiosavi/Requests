@@ -388,3 +388,28 @@ func TestParallelRequest(t *testing.T) {
 	}
 	log.Printf("Sending %d Requests took %s", len(reqs), elapsed)
 }
+
+func Test_escapeURL(t *testing.T) {
+	type args struct {
+		url string
+	}
+	tests := []struct {
+		name string
+		args args
+		want string
+	}{
+		// TODO: Add test cases.
+		{
+			name: "testOK",
+			args: args{"https://example.com/api/items?lang=en&search=escape this path"},
+			want: "https://example.com/api/items?lang=en&search=escape%20this%20path",
+		},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			if got := escapeURL(tt.args.url); got != tt.want {
+				t.Errorf("escapeURL() = %v, want %v", got, tt.want)
+			}
+		})
+	}
+}
