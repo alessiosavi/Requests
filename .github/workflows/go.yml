@@ -35,6 +35,8 @@ jobs:
       run: |
         cd example
         python3 server_example.py &
+        go run go_server.go &
         sleep 2
         cd ../
         go test -v
+        go test -bench=. -benchmem

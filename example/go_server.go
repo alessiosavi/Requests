@@ -3,25 +3,28 @@ package main
 
 import (
 	"flag"
-	"fmt"
-	"log"
-
 	"github.com/valyala/fasthttp"
 )
 
 var (
 	//counter int
-	addr    = flag.String("addr", ":9999", "TCP address to listen to")
+	addr    = flag.String("addr", ":9999", "HTTP address to listen to")
+	addrTLS    = flag.String("addrTLS", ":9990", "HTTPS address to listen to")
 )
 
 func main() {
-	if err := fasthttp.ListenAndServe(*addr, requestHandler); err != nil {
-		log.Fatalf("Error in ListenAndServe: %s", err)
+	flag.Parse()
+	if *addr == ":9999" && *addrTLS == ":9990"{
+		flag.PrintDefaults()
 	}
+	go fasthttp.ListenAndServe(*addr, requestHandler)
+	fasthttp.ListenAndServe(*addrTLS, requestHandler)
+
 }
 
 func requestHandler(ctx *fasthttp.RequestCtx) {
 	//counter = counter + 1
 	//_, _ = fmt.Fprintf(ctx, "Counter: "+strconv.Itoa(counter))
-	_, _ = fmt.Fprintf(ctx, "")
+	//_, _ = fmt.Fprintf(ctx, "")
+	ctx.SetConnectionClose()
 }

@@ -151,13 +151,17 @@ func ParallelRequest(reqs []Request, N int) []datastructure.Response {
 	}
 	for i := range reqs {
 		reqs[i].Tr.MaxIdleConns = N
+		// FIXME: Understand if can cause error on delay network
+		reqs[i].Tr.IdleConnTimeout = time.Duration(1) * time.Second
 		reqs[i].Tr.MaxIdleConnsPerHost = N
 		reqs[i].Tr.MaxConnsPerHost = N
 	}
 
 	semaphore := make(chan struct{}, N)
 	wg.Add(len(reqs))
-	client := &http.Client{}
+	client := &http.Client{
+		Transport: reqs[0].Tr,
+	}
 	for i := 0; i < len(reqs); i++ {
 		go func(i int) {
 			semaphore <- struct{}{}
@@ -172,7 +176,7 @@ func ParallelRequest(reqs []Request, N int) []datastructure.Response {
 
 // SetTLS is delegated to enable/disable TLS certificate validation
 func (req *Request) SetTLS(skipTLS bool) {
-	var transport = &http.Transport{DisableKeepAlives: false}
+	var transport = &http.Transport{DisableKeepAlives: true}
 	if skipTLS {
 		// Accept not trusted SSL Certificates
 		transport.TLSClientConfig = &tls.Config{InsecureSkipVerify: true}
@@ -278,7 +282,7 @@ func (req *Request) ExecuteRequest(client *http.Client) datastructure.Response {
 
 	log.Debug("ExecuteRequest | Executing request ...")
 	//client := &http.Client{Transport: req.Tr, Timeout: req.Timeout}
-	req.Tr.DisableKeepAlives = false
+	req.Tr.DisableKeepAlives = true
 	client.Transport = req.Tr
 	client.Timeout = req.Timeout
 	log.Debugf("Request: %+v\n", req.Req)
@@ -307,8 +311,9 @@ func (req *Request) ExecuteRequest(client *http.Client) datastructure.Response {
 	}
 	response.Cookie = resp.Cookies()
 
-	//log.Debug("ExecuteRequest | Request executed, reading response ...")
+	//log.Debug("ExecuteRequest | Request executed, reading response ...")]
 	bodyResp, err := ioutil.ReadAll(resp.Body)
+	resp.Body.Close()
 	if err != nil {
 		log.Error("Unable to read response! | Err: ", err)
 		err = errors.New("ERROR_READING_RESPONSE -> " + err.Error())

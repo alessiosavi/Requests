@@ -74,14 +74,14 @@ func TestSendRequest(t *testing.T) {
 func BenchmarkRequestGETWithoutTLS(t *testing.B) {
 	var r Request
 	for i := 0; i < t.N; i++ {
-		r.SendRequest("http://127.0.0.1:9999", "GET", nil, nil, false, 0)
+		r.SendRequest("http://127.0.0.1:9999", "GET", nil, []string{"Connection", "Close"}, false, 0)
 	}
 }
 
 func BenchmarkRequestPOSTWithoutTLS(t *testing.B) {
 	var r Request
 	for i := 0; i < t.N; i++ {
-		r.SendRequest("http://127.0.0.1:9999", "POST", []byte{}, nil, false, 0)
+		r.SendRequest("http://127.0.0.1:9999", "POST", []byte{}, []string{"Connection", "Close"}, false, 0)
 	}
 }
 
@@ -91,13 +91,14 @@ func BenchmarkParallelRequestGETWithoutTLS(t *testing.B) {
 	for i := 0; i < n; i++ {
 		req, err := InitRequest("http://127.0.0.1:9999", "GET", nil, true, false)
 		if err == nil && req != nil {
+			req.AddHeader("Connection", "Close")
 			requests[i] = *req
 		} else if err != nil {
 			t.Error("error: ", err)
 		}
 	}
 	for i := 0; i < t.N; i++ {
-		ParallelRequest(requests, 100)
+		ParallelRequest(requests, runtime.NumCPU())
 	}
 }
 
@@ -107,13 +108,14 @@ func BenchmarkParallelRequestPOSTWithoutTLS(t *testing.B) {
 	for i := 0; i < n; i++ {
 		req, err := InitRequest("http://127.0.0.1:9999", "POST", []byte{}, true, false)
 		if err == nil && req != nil {
+			req.AddHeader("Connection", "Close")
 			requests[i] = *req
 		} else if err != nil {
 			t.Error("error: ", err)
 		}
 	}
 	for i := 0; i < t.N; i++ {
-		ParallelRequest(requests, 100)
+		ParallelRequest(requests, runtime.NumCPU())
 	}
 }
 
