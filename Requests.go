@@ -313,7 +313,9 @@ func (req *Request) ExecuteRequest(client *http.Client) datastructure.Response {
 
 	//log.Debug("ExecuteRequest | Request executed, reading response ...")]
 	bodyResp, err := ioutil.ReadAll(resp.Body)
-	resp.Body.Close()
+	if err = resp.Body.Close(); err != nil {
+		log.Println("Error during connection closing! ", err.Error())
+	}
 	if err != nil {
 		log.Error("Unable to read response! | Err: ", err)
 		err = errors.New("ERROR_READING_RESPONSE -> " + err.Error())
