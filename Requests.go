@@ -20,7 +20,7 @@ import (
 // AllowedMethod represent the HTTP method allowed in the request
 var allowedMethod = []string{"GET", "POST", "HEAD", "PUT", "DELETE", "OPTIONS"}
 
-// Request will contains all the data related to the current HTTP request and response.
+// Request will contain all the data related to the current HTTP request and response.
 type Request struct {
 	Req     *http.Request          // Request
 	Tr      *http.Transport        // Transport layer, used for enable/disable TLS verification
@@ -313,6 +313,9 @@ func (req *Request) ExecuteRequest(client *http.Client) datastructure.Response {
 
 	//log.Debug("ExecuteRequest | Request executed, reading response ...")]
 	bodyResp, err := ioutil.ReadAll(resp.Body)
+	if err != nil {
+		panic(err)
+	}
 	if err = resp.Body.Close(); err != nil {
 		log.Println("Error during connection closing! ", err.Error())
 	}

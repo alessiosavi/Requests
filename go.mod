@@ -1,11 +1,17 @@
 module github.com/alessiosavi/Requests
 
-go 1.13
+go 1.17
 
 require (
-	github.com/onrik/logrus v0.8.0
-	github.com/sirupsen/logrus v1.7.0
+	github.com/onrik/logrus v0.9.0
+	github.com/sirupsen/logrus v1.8.1
 	github.com/tidwall/gjson v1.6.8 // indirect
-	github.com/valyala/fasthttp v1.8.0
-	golang.org/x/sys v0.0.0-20210124154548-22da62e12c0c // indirect
+	github.com/valyala/fasthttp v1.29.0
+	golang.org/x/sys v0.0.0-20210514084401-e8d321eab015 // indirect
+)
+
+require (
+	github.com/andybalholm/brotli v1.0.2 // indirect
+	github.com/klauspost/compress v1.13.4 // indirect
+	github.com/valyala/bytebufferpool v1.0.0 // indirect
 )
