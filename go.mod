@@ -5,7 +5,7 @@ go 1.17
 require (
 	github.com/onrik/logrus v0.9.0
 	github.com/sirupsen/logrus v1.8.1
-	github.com/tidwall/gjson v1.6.8 // indirect
+	github.com/tidwall/gjson v1.9.3 // indirect
 	github.com/valyala/fasthttp v1.29.0
 	golang.org/x/sys v0.0.0-20210514084401-e8d321eab015 // indirect
 )
